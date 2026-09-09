@@ -7,6 +7,7 @@ import reelRoutes from './reels.js';
 import userRoutes from './users.js';
 import adminRoutes from './admin.js';
 import paymentRoutes from './payments.js';
+import geocodeRoutes from './geocode.js';
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use('/reels', reelRoutes);
 router.use('/users', userRoutes);
 router.use('/admin', adminRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/geocode', geocodeRoutes);
 
 export default router;

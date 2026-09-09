@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { env, isProd } from './env.js';
+import { stopMemoryServer } from '../utils/memoryServer.js';
 
 let memoryServer = null;
 
@@ -38,9 +39,7 @@ export async function connectDB() {
 
 export async function disconnectDB() {
   await mongoose.connection.close();
-  // doCleanup removes the ~300 MB data directory. Without it, an interrupted
-  // run leaves it behind in the OS temp folder forever.
-  if (memoryServer) await memoryServer.stop({ doCleanup: true, force: true });
+  await stopMemoryServer(memoryServer);
   memoryServer = null;
 }
 

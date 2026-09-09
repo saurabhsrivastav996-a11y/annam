@@ -14,6 +14,7 @@ import {
 } from '../config/razorpay.js';
 import { env } from '../config/env.js';
 import { notifyOrderPlaced } from '../services/notify.js';
+import { geocode } from '../services/geocode.js';
 
 const DELIVERY_FEE = 30;
 
@@ -73,6 +74,13 @@ export const createCheckout = asyncHandler(async (req, res) => {
     throw new ApiError(502, `Payment gateway is unavailable right now (${reason}). Try cash on delivery.`);
   }
 
+  // Same rule as a cash order: use the confirmed pin, else geocode the address,
+  // else store nothing rather than inventing a location.
+  const deliveryPoint =
+    Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))
+      ? { lat: Number(lat), lng: Number(lng) }
+      : await geocode(deliveryAddress);
+
   const payment = await Payment.create({
     customerId: req.user._id,
     restaurantId,
@@ -82,8 +90,8 @@ export const createCheckout = asyncHandler(async (req, res) => {
     amount,
     deliveryAddress,
     razorpayOrderId: rzpOrder.id,
-    ...(lat && lng
-      ? { deliveryLocation: { type: 'Point', coordinates: [Number(lng), Number(lat)] } }
+    ...(deliveryPoint
+      ? { deliveryLocation: { type: 'Point', coordinates: [deliveryPoint.lng, deliveryPoint.lat] } }
       : {}),
   });
 

@@ -55,7 +55,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 150 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 164 tests) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run seed` | Wipe and reseed the database |
@@ -169,6 +169,14 @@ The database does the proximity work: restaurant and donation locations are GeoJ
 
 **Distances are never guessed.** With no shared location the UI simply omits them rather than quoting a number from a default city centre.
 
+### Addresses
+
+Checkout resolves the typed address to a point through **Nominatim** (OpenStreetMap) — free, no API key, same provider as the map tiles. The result is shown back on a small map with a draggable pin, because geocoding is a guess and the customer is the one who knows where they live. "Use my current location" works the other way, reverse-geocoding the device position into the address field.
+
+Nominatim is a donated service, so the server does the lookups rather than the browser: one request per second at most, an identifying User-Agent, results cached, and the endpoint behind auth and a per-IP limit so it cannot be used as a free bulk-geocoding proxy.
+
+If an address cannot be placed, the order still goes through and **no coordinates are stored** — distance and ETA then read as unknown rather than quoting a number measured from somewhere the customer has never been.
+
 ### Reviews and ratings
 
 A customer rates a **delivered** order from its tracking page — one to five stars plus an optional review of up to 500 characters. One review per order, and only by the person who placed it.
@@ -222,7 +230,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-150 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+164 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 
@@ -293,7 +301,6 @@ This is a working MVP, not a production service. Specifically:
 
 - **Payments run in Razorpay test mode** unless you supply live keys. There is no refund flow, no partial capture, and no settlement reporting — a real deployment needs those plus a Razorpay account that has cleared KYC.
 - **Kitchen transparency rides on YouTube Live**, not our own streaming stack. That is a deliberate trade: it is free and works today, but the stream lives on YouTube's terms — it is public to anyone with the link, and there is no in-app recording or retention.
-- **Delivery addresses are not geocoded.** Checkout attaches a fixed demo coordinate in Bengaluru rather than resolving the typed address.
 
 - **Reels have no moderation queue**, only an admin flag that hides a reel from the public feed.
 - **Email has no queue or retry.** A message that fails to send is logged and dropped, not retried. There is no push or SMS.

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import { stopMemoryServer } from '../src/utils/memoryServer.js';
 
 let mongo;
 
@@ -12,7 +13,7 @@ export async function startDb() {
 export async function stopDb() {
   await mongoose.connection.dropDatabase();
   await mongoose.connection.close();
-  await mongo?.stop({ doCleanup: true, force: true });
+  await stopMemoryServer(mongo);
 }
 
 export async function clearDb() {

@@ -7,6 +7,7 @@ import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { emitToOrder, emitToUser } from '../sockets/emitters.js';
 import { roadDistanceKm, travelMinutes, etaMinutes, pointToCoord } from '../utils/geo.js';
 import { notifyOrderPlaced, notifyOutForDelivery, notifyDelivered } from '../services/notify.js';
+import { geocode } from '../services/geocode.js';
 
 const DELIVERY_FEE = 30;
 
@@ -17,6 +18,22 @@ function canAccessOrder(order, user) {
   if (order.customerId?._id?.toString?.() === uid || order.customerId?.toString?.() === uid) return true;
   if (order.deliveryId?._id?.toString?.() === uid || order.deliveryId?.toString?.() === uid) return true;
   return false;
+}
+
+/**
+ * Where to deliver.
+ *
+ * The client sends coordinates when the customer confirmed a pin on the map.
+ * Otherwise the typed address is geocoded here rather than assumed — and if
+ * that fails we store nothing, so distance and ETA read as unknown instead of
+ * quoting a number measured from somewhere the customer has never been.
+ */
+async function resolveDeliveryPoint({ lat, lng, deliveryAddress }) {
+  if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+    return { lat: Number(lat), lng: Number(lng) };
+  }
+  const found = await geocode(deliveryAddress);
+  return found ? { lat: found.lat, lng: found.lng } : null;
 }
 
 export const createOrder = asyncHandler(async (req, res) => {
@@ -39,6 +56,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   });
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const deliveryPoint = await resolveDeliveryPoint({ lat, lng, deliveryAddress });
 
   const order = await Order.create({
     customerId: req.user._id,
@@ -53,8 +71,8 @@ export const createOrder = asyncHandler(async (req, res) => {
     paymentStatus: paymentMethod === 'mock-card' ? 'paid' : 'pending',
     pickupOtp: String(crypto.randomInt(1000, 9999)),
     statusHistory: [{ status: 'Placed', at: new Date() }],
-    ...(lat && lng
-      ? { deliveryLocation: { type: 'Point', coordinates: [Number(lng), Number(lat)] } }
+    ...(deliveryPoint
+      ? { deliveryLocation: { type: 'Point', coordinates: [deliveryPoint.lng, deliveryPoint.lat] } }
       : {}),
   });
 

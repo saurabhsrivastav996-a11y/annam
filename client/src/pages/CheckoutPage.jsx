@@ -7,7 +7,8 @@ import { useToast } from '../context/ToastContext.jsx';
 import { useFetch } from '../hooks/useApi.js';
 import { loadRazorpay } from '../services/razorpay.js';
 import api, { errMsg } from '../services/api.js';
-import { Button, Field, inputCls, rupees } from '../components/ui.jsx';
+import { Button, rupees } from '../components/ui.jsx';
+import AddressPicker from '../components/AddressPicker.jsx';
 
 /** Flattens the stored address object into a single editable line. */
 function defaultAddress(user) {
@@ -27,25 +28,31 @@ export default function CheckoutPage() {
   const onlineEnabled = Boolean(payConfig?.enabled);
 
   const [address, setAddress] = useState(defaultAddress(user));
+  // Set once the address resolves, or the customer moves the pin. Left null
+  // when we genuinely do not know, rather than defaulted to a city centre.
+  const [position, setPosition] = useState(null);
   const [payment, setPayment] = useState('cod');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Emptying the cart on success would otherwise trip the guard below and
+  // bounce the customer to an empty cart instead of their new order.
+  const [placed, setPlaced] = useState(false);
 
-  if (!count) return <Navigate to="/cart" replace />;
+  if (!count && !placed) return <Navigate to="/cart" replace />;
 
   const basket = {
     restaurantId: cart.restaurantId,
     items: cart.items.map(({ foodId, qty }) => ({ foodId, qty })),
     deliveryAddress: address,
-    // Demo delivery point in Bengaluru; a production build would geocode the address.
-    lat: 12.9719,
-    lng: 77.6408,
+    // Only sent once confirmed on the map; otherwise the server geocodes.
+    ...(position ? { lat: position.lat, lng: position.lng } : {}),
   };
 
   const done = (order, message) => {
+    setPlaced(true);
+    navigate(`/order/${order._id}`, { replace: true });
     clear();
     toast(message, 'success');
-    navigate(`/order/${order._id}`, { replace: true });
   };
 
   /** Cash on delivery and the simulated card both just create the order. */
@@ -139,16 +146,12 @@ export default function CheckoutPage() {
             </p>
           )}
 
-          <Field label="Delivery address" hint="Include a landmark so the courier finds you quickly.">
-            <textarea
-              required
-              rows={3}
-              className={inputCls}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Flat, street, area, city, PIN"
-            />
-          </Field>
+          <AddressPicker
+            address={address}
+            onAddressChange={setAddress}
+            position={position}
+            onPositionChange={setPosition}
+          />
 
           <fieldset>
             <legend className="mb-2 text-sm font-medium text-stone-700">Payment</legend>

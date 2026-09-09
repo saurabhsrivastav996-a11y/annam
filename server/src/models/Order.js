@@ -50,9 +50,11 @@ const orderSchema = new mongoose.Schema(
     status: { type: String, enum: ORDER_STATUSES, default: 'Placed', index: true },
     statusHistory: [{ status: String, at: { type: Date, default: Date.now } }],
     deliveryAddress: { type: String, required: true },
+    // No default: an address we could not place must read as unknown rather
+    // than silently claiming to be in the middle of Bengaluru.
     deliveryLocation: {
       type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], default: [77.5946, 12.9716] },
+      coordinates: { type: [Number], default: undefined },
     },
     // Courier reads this to the restaurant at pickup; guards against wrong-order handoffs.
     pickupOtp: { type: String, select: false },

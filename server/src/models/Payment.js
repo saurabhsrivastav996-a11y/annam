@@ -27,9 +27,10 @@ const paymentSchema = new mongoose.Schema(
     currency: { type: String, default: 'INR' },
 
     deliveryAddress: { type: String, required: true },
+    // Left unset when the address could not be placed, matching Order.
     deliveryLocation: {
       type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], default: [77.5946, 12.9716] },
+      coordinates: { type: [Number], default: undefined },
     },
 
     razorpayOrderId: { type: String, required: true, unique: true, index: true },
