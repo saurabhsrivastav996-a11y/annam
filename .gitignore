@@ -10,3 +10,6 @@ server/uploads/*
 coverage/
 .DS_Store
 .mongodb-data/
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/

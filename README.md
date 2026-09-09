@@ -77,7 +77,8 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 164 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 204 tests) |
+| `npm run test:e2e` | Cypress end-to-end suite (needs `npm run dev` running) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run db` | Start a local MongoDB against `.mongodb-data/` |
@@ -253,9 +254,18 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-164 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+204 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
+
+### End-to-end
+
+```bash
+npm run dev        # in one terminal
+npm run test:e2e   # in another
+```
+
+15 Cypress specs drive a real browser against the running app: browsing to a menu, cart persistence across pages, the cross-restaurant confirmation, placing an order and landing on live tracking, each role reaching its own dashboard, and the full Annadevta post-claim-collect-distribute loop. They cover what the API tests cannot — routing, state that survives navigation, and forms.
 
 ## Deployment
 

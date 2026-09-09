@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Annam (\u0905\u0928\u094d\u0928\u092e\u094d) - food delivery with reels, kitchen transparency and the Annadevta donation module",
+  "description": "Annam (अन्नम्) - food delivery with reels, kitchen transparency and the Annadevta donation module",
   "workspaces": [
     "server",
     "client"
@@ -17,6 +17,8 @@
     "build": "npm run build --workspace client",
     "start": "npm run start --workspace server",
     "test": "npm run test --workspace server",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open",
     "lint": "eslint .",
     "build:all": "npm run build --workspace client",
     "clean:temp": "node scripts/clean-temp.mjs"
@@ -24,10 +26,12 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "concurrently": "^9.1.2",
+    "cypress": "^15.21.1",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.12.0"
+    "globals": "^17.12.0",
+    "wait-on": "^9.1.0"
   },
   "engines": {
     "node": ">=20"
