@@ -9,3 +9,4 @@ server/uploads/*
 .mongodb-binaries/
 coverage/
 .DS_Store
+.mongodb-data/

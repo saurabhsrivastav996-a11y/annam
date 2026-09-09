@@ -23,6 +23,28 @@ Then open **http://localhost:5173**.
 
 The API starts on port 5000 and, with no `MONGODB_URI` set, boots an **in-memory MongoDB** and seeds it automatically. That makes the first run zero-setup; it also means data resets every time the server restarts.
 
+### Keeping your data
+
+To have orders survive a restart, point the app at a real MongoDB.
+
+**A local one**, if MongoDB is installed:
+
+```bash
+npm run db
+```
+
+That runs `mongod` against `.mongodb-data/` inside the project and leaves it in the foreground — Ctrl+C stops it. It sidesteps the Windows MongoDB *service*, which needs Administrator to start. Then set in `server/.env`:
+
+```
+MONGODB_URI=mongodb://127.0.0.1:27017/annam
+```
+
+and seed it once with `npm run seed`.
+
+**Or MongoDB Atlas** (needed for deployment anyway): create a free M0 cluster and use its connection string as `MONGODB_URI` instead. Nothing else changes.
+
+If `MONGODB_URI` points somewhere unreachable the server says so and tells you how to fix it, rather than timing out silently.
+
 ### Demo accounts
 
 Every account uses the password **`Test@123`**. The login page lists them all and fills the form when you click one.
@@ -58,6 +80,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | `npm test` | Backend test suite (Jest + Supertest, 164 tests) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
+| `npm run db` | Start a local MongoDB against `.mongodb-data/` |
 | `npm run seed` | Wipe and reseed the database |
 | `npm start` | Run the API without the dev client |
 
