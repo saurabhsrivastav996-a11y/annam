@@ -10,6 +10,47 @@ Five roles share one system: **customer**, **restaurant**, **delivery partner**,
 
 ---
 
+## What it looks like
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/01-discover.webp" alt="The discover feed, with a hero search and a row of food reels"></td>
+<td width="50%"><img src="docs/screenshots/02-reels.webp" alt="A grid of food reels, each captioned with the kitchen that made it"></td>
+</tr>
+<tr>
+<td><b>Discover</b> — the landing feed leads with reels and a live count of meals rescued, not a wall of static menu photos.</td>
+<td><b>Reels</b> — short clips of dishes being cooked. Tap one and you order from that kitchen.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/03-search.webp" alt="Search results for &quot;something spicy under 300&quot;, with Spicy and Under ₹300 filter chips"></td>
+<td><img src="docs/screenshots/04-restaurant.webp" alt="A restaurant page showing a transparent-kitchen badge and a live kitchen feed panel"></td>
+</tr>
+<tr>
+<td><b>Search</b> — type a sentence. The parsed filters are shown back as chips, so a wrong reading is visible rather than mysterious. Works with no API key.</td>
+<td><b>Kitchen transparency</b> — kitchens enrolled in transparency stream to YouTube; the page says plainly when nobody is live.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/05-tracking.webp" alt="Order tracking: a status stepper, a pickup code, and a map of Bengaluru with the courier route"></td>
+<td><img src="docs/screenshots/06-annadevta.webp" alt="The Annadevta page listing surplus food donations with a map of pickup points"></td>
+</tr>
+<tr>
+<td><b>Live tracking</b> — the courier's position over OpenStreetMap, with distance and an ETA that is labelled an estimate rather than dressed up as a routed one. Pickup needs the code the customer reads out at handover.</td>
+<td><b>Annadevta</b> — surplus posted at closing time, ranked for each volunteer by urgency, distance, how much they can carry, and how fresh it is.</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/07-kitchen.webp" alt="The restaurant dashboard listing active orders with their statuses"></td>
+<td><img src="docs/screenshots/08-admin.webp" alt="The admin dashboard with platform totals and breakdowns by role and order status"></td>
+</tr>
+<tr>
+<td><b>My Kitchen</b> — incoming orders with the one action each state allows, plus menu, reels and surplus in the same place.</td>
+<td><b>Admin</b> — platform totals, users by role, orders by status.</td>
+</tr>
+</table>
+
+These are generated, not hand-taken — `npm run shots` drives the real app through Cypress and rewrites them, so they cannot quietly go stale.
+
+---
+
 ## Run it
 
 Requires **Node 20+**. Nothing else — no database install, no API keys.
@@ -79,6 +120,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | `npm run dev:server` / `npm run dev:client` | One side only |
 | `npm test` | Backend test suite (Jest + Supertest, 248 tests) |
 | `npm run test:e2e` | Cypress end-to-end suite (needs `npm run dev` running) |
+| `npm run shots` | Regenerate the README screenshots (needs `npm run dev` running) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run db` | Start a local MongoDB against `.mongodb-data/` |

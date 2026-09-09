@@ -21,7 +21,8 @@
     "test:e2e:open": "cypress open",
     "lint": "eslint .",
     "build:all": "npm run build --workspace client",
-    "clean:temp": "node scripts/clean-temp.mjs"
+    "clean:temp": "node scripts/clean-temp.mjs",
+    "shots": "cypress run --config specPattern=scripts/screenshots/capture.cy.js,screenshotsFolder=docs/screenshots,viewportWidth=1440,viewportHeight=900,video=false,retries=0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
