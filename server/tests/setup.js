@@ -12,7 +12,7 @@ export async function startDb() {
 export async function stopDb() {
   await mongoose.connection.dropDatabase();
   await mongoose.connection.close();
-  await mongo?.stop();
+  await mongo?.stop({ doCleanup: true, force: true });
 }
 
 export async function clearDb() {
