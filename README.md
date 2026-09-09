@@ -182,13 +182,63 @@ npm test
 
 ## Deployment
 
-The client is a static build (`npm run build` → `client/dist`) suited to Vercel or Netlify. The server is a long-lived Node process — it holds WebSocket connections, so it needs a real host such as Render or Railway rather than a serverless function.
+Two shapes. **Single service** is simpler and is the one to pick unless you specifically want a CDN-hosted frontend.
 
-For production you must set `MONGODB_URI` (MongoDB Atlas), a strong `JWT_SECRET`, and `CLIENT_URL` to the deployed frontend origin. Set `VITE_API_URL` on the client to the deployed API origin. If you want media to survive redeploys, set the Cloudinary variables — most hosts have ephemeral disks, so the local `uploads/` fallback will not persist.
+### Before either option
 
-`.github/workflows/ci.yml` lints, tests and builds on every push and pull request.
+1. **Database.** Create a free MongoDB Atlas cluster (M0), add a database user, and under Network Access allow `0.0.0.0/0` (hosts like Render use rotating egress IPs). Copy the connection string — it looks like `mongodb+srv://user:pass@cluster.mongodb.net/annam`.
+2. **Push the repo** to GitHub. Nothing here is host-specific.
+3. **Generate a JWT secret:**
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   ```
 
----
+Never commit any of these. `server/.env` is gitignored; set real values in the host's dashboard.
+
+### Option A — single service (Render only)
+
+Express serves the API *and* the built client from one origin. No CORS, no `VITE_API_URL`, one URL, one free instance.
+
+In Render: **New → Blueprint**, point it at the repo (it reads `render.yaml`), then set these environment variables:
+
+| Variable | Value |
+| --- | --- |
+| `MONGODB_URI` | your Atlas connection string |
+| `SERVE_CLIENT` | `true` |
+| `CLIENT_URL` | your Render URL, e.g. `https://annam-api.onrender.com` |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | optional, enables online payment |
+
+Then change the build command to also build the client:
+
+```
+npm ci && npm install --include=dev --workspace client && npm run build --workspace client
+```
+
+`JWT_SECRET` is generated for you by the blueprint. Deploy, and the whole app is at your Render URL.
+
+### Option B — split (Vercel + Render)
+
+**Backend on Render:** same blueprint, but leave `SERVE_CLIENT` unset and set `CLIENT_URL` to your Vercel URL.
+
+**Frontend on Vercel:** import the repo, set the root directory to `client/`. `client/vercel.json` supplies the build settings and — importantly — the SPA rewrite, without which refreshing on `/annadevta` or opening a shared `/order/:id` link returns 404. Set one environment variable:
+
+```
+VITE_API_URL = https://your-api.onrender.com
+```
+
+Then go back and set Render's `CLIENT_URL` to the Vercel URL. `CLIENT_URL` accepts a comma-separated list, so you can allow a custom domain and preview URLs together.
+
+### After deploying
+
+- `GET /api/health` should return `{"status":"ok"}`.
+- Seed the demo data once: `npm run seed` from a Render shell, or leave the database empty and register your own accounts.
+- **Free-tier Render sleeps after inactivity.** The first request after a nap takes ~30–50 seconds, and WebSocket tracking reconnects once it wakes.
+- Set the Razorpay webhook to `https://<your-api>/api/payments/webhook` for events `payment.captured` and `payment.failed`, and put the signing secret in `RAZORPAY_WEBHOOK_SECRET`.
+- **Uploads need Cloudinary in production.** Render's disk is ephemeral, so the local `uploads/` fallback is wiped on every deploy.
+
+### Guardrails
+
+The server refuses to start in production if `MONGODB_URI` is missing or `JWT_SECRET` is still the development default — a missing database URI would otherwise fall back to an in-memory store and silently lose every order on restart.
 
 ## Known limits
 

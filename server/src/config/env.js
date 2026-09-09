@@ -8,7 +8,13 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 export const env = {
   port: Number(process.env.PORT) || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+  // Comma-separated, so a custom domain and Vercel preview URLs can coexist.
+  clientUrls: (process.env.CLIENT_URL || 'http://localhost:5173')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
+  // When true, Express also serves the built client — one service, no CORS.
+  serveClient: process.env.SERVE_CLIENT === 'true',
   jwtSecret: process.env.JWT_SECRET || 'annam_dev_secret_change_me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   mongoUri: process.env.MONGODB_URI || '',
@@ -22,6 +28,7 @@ export const env = {
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   },
+  clientDistDir: path.resolve(__dirname, '../../../client/dist'),
   uploadsDir: path.resolve(__dirname, '../../uploads'),
   seedMediaDir: path.resolve(__dirname, '../../seed-media'),
 };

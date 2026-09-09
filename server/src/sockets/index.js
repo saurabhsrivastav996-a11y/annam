@@ -7,7 +7,7 @@ import { setIO } from './emitters.js';
 
 export function initSockets(httpServer) {
   const io = new Server(httpServer, {
-    cors: { origin: env.clientUrl, credentials: true },
+    cors: { origin: env.clientUrls, credentials: true },
   });
 
   // Sockets are authenticated with the same JWT as the REST API.

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { env } from './env.js';
+import { env, isProd } from './env.js';
 
 let memoryServer = null;
 
@@ -14,6 +14,14 @@ export async function connectDB() {
   let mode = 'external';
 
   if (!uri) {
+    // Falling back in production would mean every restart silently wipes real
+    // customer data — and mongodb-memory-server is a devDependency, so it is
+    // not even installed there. Fail loudly instead.
+    if (isProd) {
+      throw new Error(
+        'MONGODB_URI is required in production. Set it to your MongoDB Atlas connection string.'
+      );
+    }
     mode = 'in-memory';
     const { MongoMemoryServer } = await import('mongodb-memory-server');
     memoryServer = await MongoMemoryServer.create({ instance: { dbName: 'annam' } });

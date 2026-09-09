@@ -18,7 +18,7 @@ async function start() {
   server.listen(env.port, () => {
     console.log(`[api]  http://localhost:${env.port}/api/health`);
     console.log(`[ws]   socket.io ready`);
-    console.log(`[cors] allowing ${env.clientUrl}`);
+    console.log(`[cors] allowing ${env.clientUrls.join(', ')}`);
   });
 
   const shutdown = async (signal) => {
