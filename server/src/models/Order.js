@@ -56,7 +56,7 @@ const orderSchema = new mongoose.Schema(
     },
     // Courier reads this to the restaurant at pickup; guards against wrong-order handoffs.
     pickupOtp: { type: String, select: false },
-    paymentMethod: { type: String, enum: ['cod', 'mock-card'], default: 'cod' },
+    paymentMethod: { type: String, enum: ['cod', 'mock-card', 'razorpay'], default: 'cod' },
     paymentStatus: { type: String, enum: ['pending', 'paid'], default: 'pending' },
     rating: { type: Number, min: 1, max: 5 },
     review: String,

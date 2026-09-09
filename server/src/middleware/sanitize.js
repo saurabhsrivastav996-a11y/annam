@@ -4,6 +4,9 @@
  * reassigning req.query, which Express 5 exposes as a getter.
  */
 function scrub(value) {
+  // The raw webhook body is a Buffer; walking its byte indices is pointless
+  // and would corrupt the bytes the signature is computed over.
+  if (Buffer.isBuffer(value)) return;
   if (Array.isArray(value)) {
     value.forEach(scrub);
     return;

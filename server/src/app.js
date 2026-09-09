@@ -20,6 +20,9 @@ export function createApp() {
     })
   );
   app.use(cors({ origin: env.clientUrl, credentials: true }));
+  // Razorpay signs the exact bytes it sends, so this route must see the raw
+  // body. It has to be mounted before express.json would consume the stream.
+  app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(mongoSanitize);

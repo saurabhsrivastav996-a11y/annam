@@ -10,6 +10,11 @@ import MapView from '../components/MapView.jsx';
 import { Badge, Button, PageLoader, rupees } from '../components/ui.jsx';
 
 const STEPS = ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery', 'Delivered'];
+const PAYMENT_LABELS = {
+  cod: 'Cash on delivery',
+  razorpay: 'Paid online',
+  'mock-card': 'Card (demo)',
+};
 const LABELS = {
   Placed: 'Order placed',
   Accepted: 'Restaurant accepted',
@@ -194,7 +199,7 @@ export default function OrderTrackingPage() {
             </div>
           </dl>
           <p className="mt-2 text-xs text-stone-500">
-            {order.paymentMethod === 'cod' ? 'Cash on delivery' : 'Card (demo)'} · {order.paymentStatus}
+            {PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod} · {order.paymentStatus}
           </p>
         </section>
 

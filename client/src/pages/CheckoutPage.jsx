@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { CreditCard, Wallet } from 'lucide-react';
+import { CreditCard, Wallet, ShieldCheck } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { useFetch } from '../hooks/useApi.js';
+import { loadRazorpay } from '../services/razorpay.js';
 import api, { errMsg } from '../services/api.js';
 import { Button, Field, inputCls, rupees } from '../components/ui.jsx';
 
@@ -20,6 +22,10 @@ export default function CheckoutPage() {
   const toast = useToast();
   const navigate = useNavigate();
 
+  // Tells us whether this deployment has Razorpay keys configured.
+  const { data: payConfig } = useFetch('/payments/config');
+  const onlineEnabled = Boolean(payConfig?.enabled);
+
   const [address, setAddress] = useState(defaultAddress(user));
   const [payment, setPayment] = useState('cod');
   const [busy, setBusy] = useState(false);
@@ -27,23 +33,85 @@ export default function CheckoutPage() {
 
   if (!count) return <Navigate to="/cart" replace />;
 
-  const placeOrder = async (e) => {
+  const basket = {
+    restaurantId: cart.restaurantId,
+    items: cart.items.map(({ foodId, qty }) => ({ foodId, qty })),
+    deliveryAddress: address,
+    // Demo delivery point in Bengaluru; a production build would geocode the address.
+    lat: 12.9719,
+    lng: 77.6408,
+  };
+
+  const done = (order, message) => {
+    clear();
+    toast(message, 'success');
+    navigate(`/order/${order._id}`, { replace: true });
+  };
+
+  /** Cash on delivery and the simulated card both just create the order. */
+  const placeDirectOrder = async () => {
+    const { data } = await api.post('/orders', { ...basket, paymentMethod: payment });
+    done(data, 'Order placed! Track it live.');
+  };
+
+  /**
+   * Online payment. The server prices the basket and opens a Razorpay order;
+   * the real Annam order is only created after the signature verifies, so an
+   * abandoned payment never reaches the kitchen.
+   */
+  const payOnline = async () => {
+    const Razorpay = await loadRazorpay();
+    const { data: checkout } = await api.post('/payments/checkout', basket);
+
+    await new Promise((resolve) => {
+      const rzp = new Razorpay({
+        key: checkout.keyId,
+        amount: checkout.amountInPaise,
+        currency: checkout.currency,
+        name: 'Annam',
+        description: `Order from ${checkout.restaurantName}`,
+        order_id: checkout.razorpayOrderId,
+        prefill: { name: user.name, email: user.email, contact: user.phone || '' },
+        theme: { color: '#f06106' },
+        handler: async (response) => {
+          try {
+            const { data } = await api.post('/payments/verify', response);
+            done(data.order, 'Payment received — your order is in!');
+          } catch (err) {
+            setError(errMsg(err, 'We could not confirm that payment'));
+          } finally {
+            resolve();
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            api
+              .post('/payments/abandon', {
+                razorpay_order_id: checkout.razorpayOrderId,
+                reason: 'Closed the payment window',
+              })
+              .catch(() => {});
+            setError('Payment cancelled. Your cart is still here.');
+            resolve();
+          },
+        },
+      });
+
+      rzp.on('payment.failed', ({ error: rzpError }) => {
+        setError(rzpError?.description || 'The payment failed. Try another method.');
+      });
+
+      rzp.open();
+    });
+  };
+
+  const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const { data } = await api.post('/orders', {
-        restaurantId: cart.restaurantId,
-        items: cart.items.map(({ foodId, qty }) => ({ foodId, qty })),
-        deliveryAddress: address,
-        paymentMethod: payment,
-        // Demo delivery point in Bengaluru; a production build would geocode the address.
-        lat: 12.9719,
-        lng: 77.6408,
-      });
-      clear();
-      toast('Order placed! Track it live.', 'success');
-      navigate(`/order/${data._id}`, { replace: true });
+      if (payment === 'razorpay') await payOnline();
+      else await placeDirectOrder();
     } catch (err) {
       setError(errMsg(err, 'Could not place your order'));
     } finally {
@@ -51,12 +119,19 @@ export default function CheckoutPage() {
     }
   };
 
+  const methods = [
+    { key: 'cod', label: 'Cash on delivery', icon: Wallet, note: 'Pay the courier' },
+    onlineEnabled
+      ? { key: 'razorpay', label: 'Pay online', icon: CreditCard, note: 'UPI, card, netbanking' }
+      : { key: 'mock-card', label: 'Card (demo)', icon: CreditCard, note: 'Simulated, no gateway' },
+  ];
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="font-display text-3xl font-bold text-stone-900">Checkout</h1>
       <p className="mt-1 text-sm text-stone-600">Ordering from {cart.restaurantName}</p>
 
-      <form onSubmit={placeOrder} className="mt-6 grid gap-6 sm:grid-cols-[1fr_16rem]">
+      <form onSubmit={submit} className="mt-6 grid gap-6 sm:grid-cols-[1fr_16rem]">
         <div className="space-y-5">
           {error && (
             <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -78,10 +153,7 @@ export default function CheckoutPage() {
           <fieldset>
             <legend className="mb-2 text-sm font-medium text-stone-700">Payment</legend>
             <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                { key: 'cod', label: 'Cash on delivery', icon: Wallet, note: 'Pay the courier' },
-                { key: 'mock-card', label: 'Card (demo)', icon: CreditCard, note: 'Simulated, no gateway' },
-              ].map(({ key, label, icon: Icon, note }) => (
+              {methods.map(({ key, label, icon: Icon, note }) => (
                 <button
                   key={key}
                   type="button"
@@ -99,10 +171,20 @@ export default function CheckoutPage() {
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-stone-500">
-              Card payments are simulated in this build — no real gateway is called and no card details
-              are collected.
-            </p>
+
+            {onlineEnabled ? (
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-stone-500">
+                <ShieldCheck size={14} className="mt-px shrink-0 text-leaf-600" />
+                Card and UPI details are entered on Razorpay&apos;s own secure window — Annam never
+                sees them. Your order is created once Razorpay confirms the payment.
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-stone-500">
+                Online payment is switched off on this server. Add Razorpay keys to
+                <code className="mx-1 rounded bg-stone-100 px-1">server/.env</code>
+                to enable it; the demo card option settles instantly without a gateway.
+              </p>
+            )}
           </fieldset>
         </div>
 
@@ -125,7 +207,7 @@ export default function CheckoutPage() {
           </dl>
 
           <Button type="submit" size="lg" busy={busy} className="mt-4 w-full">
-            Place order
+            {payment === 'razorpay' ? `Pay ${rupees(total)}` : 'Place order'}
           </Button>
         </aside>
       </form>

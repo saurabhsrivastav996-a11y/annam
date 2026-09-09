@@ -55,7 +55,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 84 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 101 tests) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run seed` | Wipe and reseed the database |
@@ -75,7 +75,7 @@ client/                 React 18 + Vite + Tailwind v4
 
 server/                 Node + Express + Mongoose (ESM)
   src/config/           env, database, media storage
-  src/models/           User, Restaurant, FoodItem, Order, Donation, Reel
+  src/models/           User, Restaurant, FoodItem, Order, Donation, Reel, Payment
   src/middleware/       auth (JWT + roles), validation, sanitising, uploads
   src/controllers/      Request handling and business rules
   src/routes/           Route tables with per-route validators
@@ -117,6 +117,8 @@ Both `.env` files are created from their `.env.example` on first checkout; every
 | Variable | Effect when unset |
 | --- | --- |
 | `MONGODB_URI` | Starts an in-memory MongoDB and seeds it. Set it to a MongoDB Atlas URI for persistence. |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Online payment is hidden and checkout offers cash on delivery plus a simulated card. Set both (test keys are free) to enable real payments. |
+| `RAZORPAY_WEBHOOK_SECRET` | The webhook is rejected. Set it if you configure the Razorpay webhook. |
 | `CLOUDINARY_*` | Uploads are written to `server/uploads/` and served from `/uploads`. Set all three to use Cloudinary. |
 | `JWT_SECRET` | Falls back to a development secret. The server **refuses to start in production** with that default. |
 | `PORT`, `CLIENT_URL` | Default to 5000 and `http://localhost:5173`. |
@@ -126,6 +128,21 @@ Both `.env` files are created from their `.env.example` on first checkout; every
 ### Maps
 
 Maps use **Leaflet with OpenStreetMap tiles**, which need no API key and no billing account, so tracking works out of the box. `VITE_GOOGLE_MAPS_API_KEY` is reserved for swapping in Google Maps later; nothing reads it today.
+
+### Payments
+
+Checkout offers **cash on delivery** always, and **online payment via Razorpay** (UPI, card, netbanking) once `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are set. Without keys it falls back to a simulated card so the demo still completes end to end.
+
+Get free test keys from the [Razorpay dashboard](https://dashboard.razorpay.com/app/website-app-settings/api-keys) (Test Mode), put them in `server/.env`, and restart. Razorpay publishes [test card numbers](https://razorpay.com/docs/payments/payments/test-card-details/) for trying the flow; in test mode no money moves.
+
+How the flow is put together:
+
+1. The server prices the basket from the database and opens a Razorpay order. **No Annam order exists yet**, so an abandoned payment never reaches a kitchen.
+2. The customer pays in Razorpay's own window. Card and UPI details never touch Annam's servers.
+3. Razorpay returns a signature. The server verifies it with HMAC-SHA256 against the key secret, and **only then** creates the order as paid. A forged callback creates nothing.
+4. A `payment.captured` webhook does the same job server-to-server, covering the case where the customer closes the browser the instant after paying.
+
+Both paths are idempotent — a replay, or the webhook arriving after the browser callback, returns the existing order rather than placing a second one. To receive webhooks locally, expose port 5000 with a tunnel and point the Razorpay webhook at `<public-url>/api/payments/webhook`.
 
 ### Kitchen transparency
 
@@ -159,7 +176,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-84 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, and admin controls.
+101 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 
@@ -177,7 +194,7 @@ For production you must set `MONGODB_URI` (MongoDB Atlas), a strong `JWT_SECRET`
 
 This is a working MVP, not a production service. Specifically:
 
-- **Payments are simulated.** Choosing "Card" marks the order paid without contacting any gateway, and no card details are collected anywhere.
+- **Payments run in Razorpay test mode** unless you supply live keys. There is no refund flow, no partial capture, and no settlement reporting — a real deployment needs those plus a Razorpay account that has cleared KYC.
 - **Kitchen transparency rides on YouTube Live**, not our own streaming stack. That is a deliberate trade: it is free and works today, but the stream lives on YouTube's terms — it is public to anyone with the link, and there is no in-app recording or retention.
 - **Delivery addresses are not geocoded.** Checkout attaches a fixed demo coordinate in Bengaluru rather than resolving the typed address.
 - **Notifications are in-app only** — no email or push.

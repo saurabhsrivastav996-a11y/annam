@@ -6,6 +6,7 @@ import donationRoutes from './donations.js';
 import reelRoutes from './reels.js';
 import userRoutes from './users.js';
 import adminRoutes from './admin.js';
+import paymentRoutes from './payments.js';
 
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.use('/donations', donationRoutes);
 router.use('/reels', reelRoutes);
 router.use('/users', userRoutes);
 router.use('/admin', adminRoutes);
+router.use('/payments', paymentRoutes);
 
 export default router;
