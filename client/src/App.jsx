@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 import Home from './pages/Home.jsx';
 import ReelsPage from './pages/ReelsPage.jsx';
+import SearchPage from './pages/SearchPage.jsx';
 import RestaurantPage from './pages/RestaurantPage.jsx';
 import CartPage from './pages/CartPage.jsx';
 import CheckoutPage from './pages/CheckoutPage.jsx';
@@ -40,6 +41,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/reels" element={<ReelsPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/restaurant/:id" element={<RestaurantPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/annadevta" element={<AnnadevtaPage />} />

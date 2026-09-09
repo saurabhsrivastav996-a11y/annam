@@ -9,6 +9,7 @@ import adminRoutes from './admin.js';
 import paymentRoutes from './payments.js';
 import geocodeRoutes from './geocode.js';
 import reportRoutes from './reports.js';
+import searchRoutes from './search.js';
 
 const router = express.Router();
 
@@ -24,5 +25,6 @@ router.use('/admin', adminRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/geocode', geocodeRoutes);
 router.use('/reports', reportRoutes);
+router.use('/search', searchRoutes);
 
 export default router;

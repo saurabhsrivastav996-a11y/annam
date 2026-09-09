@@ -30,6 +30,10 @@ export const env = {
     pass: process.env.SMTP_PASS || '',
     from: process.env.MAIL_FROM || '',
   },
+  anthropic: {
+    // Optional. Without it, natural-language search falls back to a rules parser.
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+  },
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',

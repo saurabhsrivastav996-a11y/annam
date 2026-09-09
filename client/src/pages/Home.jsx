@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Sparkles, HeartHandshake, Eye, UtensilsCrossed, Navigation } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useFetch } from '../hooks/useApi.js';
 import { useGeolocation } from '../hooks/useGeolocation.js';
 import RestaurantCard from '../components/RestaurantCard.jsx';
@@ -18,6 +19,8 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
 
+  const navigate = useNavigate();
+  const { data: searchConfig } = useFetch('/search/config');
   const { position, status: geoStatus, request: askForLocation } = useGeolocation();
 
   const path = useMemo(() => {
@@ -67,7 +70,11 @@ export default function Home() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              setQuery(search.trim());
+              const text = search.trim();
+              if (!text) return setQuery('');
+              // Anything conversational belongs on the dish search, not a
+              // restaurant-name filter.
+              navigate(`/search?q=${encodeURIComponent(text)}`);
             }}
             className="mt-6 flex max-w-lg gap-2"
           >
@@ -76,8 +83,12 @@ export default function Home() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search restaurants or cuisines…"
-                aria-label="Search restaurants"
+                placeholder={
+                  searchConfig?.naturalLanguage
+                    ? 'Something spicy under ₹300…'
+                    : 'Veg under 300, paneer, dosa…'
+                }
+                aria-label="Search dishes"
                 className="w-full rounded-xl border border-stone-300 bg-white py-2.5 pl-10 pr-3 text-sm outline-none transition focus:border-saffron-400 focus:ring-2 focus:ring-saffron-100"
               />
             </div>
