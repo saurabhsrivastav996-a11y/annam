@@ -7,11 +7,12 @@ export const getProfile = asyncHandler(async (req, res) => {
 
 export const updateProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
-  const { name, phone, address } = req.body;
+  const { name, phone, address, notifications } = req.body;
 
   if (name !== undefined) user.name = name;
   if (phone !== undefined) user.phone = phone;
   if (address !== undefined) user.address = address;
+  if (notifications?.email !== undefined) user.notifications.email = Boolean(notifications.email);
 
   await user.save();
   res.json(user.toPublic());

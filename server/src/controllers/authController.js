@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import { signToken } from '../middleware/auth.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
+import { notifyWelcome } from '../services/notify.js';
 
 export const register = asyncHandler(async (req, res) => {
   const { name, email, password, role = 'customer', phone, address } = req.body;
@@ -14,6 +15,8 @@ export const register = asyncHandler(async (req, res) => {
   const user = new User({ name, email, role, phone, address });
   await user.setPassword(password);
   await user.save();
+
+  notifyWelcome(user);
 
   res.status(201).json({ token: signToken(user), user: user.toPublic() });
 });

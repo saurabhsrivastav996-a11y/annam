@@ -13,6 +13,7 @@ import {
   verifyWebhookSignature,
 } from '../config/razorpay.js';
 import { env } from '../config/env.js';
+import { notifyOrderPlaced } from '../services/notify.js';
 
 const DELIVERY_FEE = 30;
 
@@ -127,6 +128,7 @@ async function fulfil(payment) {
   if (restaurant) {
     emitToUser(restaurant.ownerUserId.toString(), 'order:new', { orderId: order._id });
   }
+  notifyOrderPlaced(order);
 
   return order;
 }

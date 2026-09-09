@@ -55,7 +55,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 137 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 150 tests) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run seed` | Wipe and reseed the database |
@@ -117,6 +117,7 @@ Both `.env` files are created from their `.env.example` on first checkout; every
 | Variable | Effect when unset |
 | --- | --- |
 | `MONGODB_URI` | Starts an in-memory MongoDB and seeds it. Set it to a MongoDB Atlas URI for persistence. |
+| `SMTP_USER` / `SMTP_PASS` | No email is sent; in-app toasts and live updates still work. Set both to switch email on. |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Online payment is hidden and checkout offers cash on delivery plus a simulated card. Set both (test keys are free) to enable real payments. |
 | `RAZORPAY_WEBHOOK_SECRET` | The webhook is rejected. Set it if you configure the Razorpay webhook. |
 | `CLOUDINARY_*` | Uploads are written to `server/uploads/` and served from `/uploads`. Set all three to use Cloudinary. |
@@ -128,6 +129,35 @@ Both `.env` files are created from their `.env.example` on first checkout; every
 ### Maps
 
 Maps use **Leaflet with OpenStreetMap tiles**, which need no API key and no billing account, so tracking works out of the box. `VITE_GOOGLE_MAPS_API_KEY` is reserved for swapping in Google Maps later; nothing reads it today.
+
+### Email notifications
+
+Annam sends email at the few moments that actually matter:
+
+| Email | Who gets it |
+| --- | --- |
+| Welcome | anyone who registers |
+| Order confirmed, with the itemised bill | the customer |
+| New order, with the delivery address | the restaurant owner |
+| On the way, with the pickup code and ETA | the customer |
+| Delivered, with a link to rate it | the customer |
+| A volunteer claimed your donation | the restaurant owner |
+
+**Connecting a Gmail account.** Google no longer accepts your normal password over SMTP, so you need an App Password:
+
+1. Turn on 2-Step Verification at [myaccount.google.com/security](https://myaccount.google.com/security) — App Passwords are unavailable without it.
+2. Create one at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) and copy the 16 characters.
+3. Put it in `server/.env` and restart:
+
+```
+SMTP_USER=your.address@gmail.com
+SMTP_PASS=the16charapppassword
+MAIL_FROM=Annam <your.address@gmail.com>
+```
+
+That App Password is a credential with access to send as you — keep it out of git (`server/.env` is ignored) and set it through the host's dashboard in production. Free Gmail accounts cap at roughly 500 messages a day, which is fine for a demo but not for real traffic; a transactional provider (Resend, SendGrid, SES) is the production answer, and only `SMTP_HOST`/`SMTP_PORT` change.
+
+Two rules hold regardless of provider: **email never blocks an order** — sending is fire-and-forget and a mail outage is logged, not raised — and **every recipient can opt out** from their profile, which each template links to.
 
 ### Distance and delivery estimates
 
@@ -192,7 +222,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-137 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+150 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 
@@ -222,6 +252,7 @@ In Render: **New → Blueprint**, point it at the repo (it reads `render.yaml`),
 | `MONGODB_URI` | your Atlas connection string |
 | `SERVE_CLIENT` | `true` |
 | `CLIENT_URL` | your Render URL, e.g. `https://annam-api.onrender.com` |
+| `SMTP_USER` / `SMTP_PASS` | No email is sent; in-app toasts and live updates still work. Set both to switch email on. |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | optional, enables online payment |
 
 Then change the build command to also build the client:
@@ -263,6 +294,7 @@ This is a working MVP, not a production service. Specifically:
 - **Payments run in Razorpay test mode** unless you supply live keys. There is no refund flow, no partial capture, and no settlement reporting — a real deployment needs those plus a Razorpay account that has cleared KYC.
 - **Kitchen transparency rides on YouTube Live**, not our own streaming stack. That is a deliberate trade: it is free and works today, but the stream lives on YouTube's terms — it is public to anyone with the link, and there is no in-app recording or retention.
 - **Delivery addresses are not geocoded.** Checkout attaches a fixed demo coordinate in Bengaluru rather than resolving the typed address.
-- **Notifications are in-app only** — no email or push.
+
 - **Reels have no moderation queue**, only an admin flag that hides a reel from the public feed.
+- **Email has no queue or retry.** A message that fails to send is logged and dropped, not retried. There is no push or SMS.
 - **Reviews are not moderated either**, and cannot be edited or removed once submitted. There is no verification beyond "you ordered this", and no reply-from-the-restaurant flow.

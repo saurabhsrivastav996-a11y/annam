@@ -4,6 +4,7 @@ import User from '../models/User.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { broadcast, emitToUser } from '../sockets/emitters.js';
 import { roadDistanceKm, travelMinutes, pointToCoord } from '../utils/geo.js';
+import { notifyDonationClaimed } from '../services/notify.js';
 
 /** Available donations, nearest first when coordinates are supplied. */
 export const listDonations = asyncHandler(async (req, res) => {
@@ -87,6 +88,7 @@ export const acceptDonation = asyncHandler(async (req, res) => {
     volunteer: req.user.name,
   });
   broadcast('donation:taken', { donationId: donation._id });
+  notifyDonationClaimed(donation, req.user);
 
   res.json(donation);
 });

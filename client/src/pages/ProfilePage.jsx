@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HeartHandshake } from 'lucide-react';
+import { HeartHandshake, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import api, { errMsg } from '../services/api.js';
@@ -18,6 +18,7 @@ export default function ProfilePage() {
       state: user.address?.state || '',
       zip: user.address?.zip || '',
     },
+    notifications: { email: user.notifications?.email !== false },
   });
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '' });
   const [busy, setBusy] = useState(false);
@@ -101,6 +102,27 @@ export default function ProfilePage() {
             </Field>
           ))}
         </div>
+
+        <fieldset className="border-t border-stone-200 pt-4">
+          <legend className="sr-only">Notifications</legend>
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={form.notifications.email}
+              onChange={(e) => setForm({ ...form, notifications: { email: e.target.checked } })}
+              className="mt-0.5 size-4 accent-saffron-500"
+            />
+            <span>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-stone-800">
+                <Mail size={14} /> Email me about my orders
+              </span>
+              <span className="mt-0.5 block text-xs text-stone-500">
+                Order confirmations, when food leaves the kitchen, and when it arrives.
+                {user.role === 'restaurant' && ' Plus new orders and claimed donations.'}
+              </span>
+            </span>
+          </label>
+        </fieldset>
 
         <Button type="submit" busy={busy}>Save profile</Button>
       </form>

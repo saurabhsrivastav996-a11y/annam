@@ -6,6 +6,7 @@ import User from '../models/User.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { emitToOrder, emitToUser } from '../sockets/emitters.js';
 import { roadDistanceKm, travelMinutes, etaMinutes, pointToCoord } from '../utils/geo.js';
+import { notifyOrderPlaced, notifyOutForDelivery, notifyDelivered } from '../services/notify.js';
 
 const DELIVERY_FEE = 30;
 
@@ -58,6 +59,7 @@ export const createOrder = asyncHandler(async (req, res) => {
   });
 
   emitToUser(restaurant.ownerUserId.toString(), 'order:new', { orderId: order._id });
+  notifyOrderPlaced(order);
 
   res.status(201).json(order);
 });
@@ -184,6 +186,13 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   // is already in it, and a second emit to the customer's user room would
   // deliver the same update twice.
   emitToOrder(order._id.toString(), 'order:status', { orderId: order._id, status });
+
+  // The two moments worth an inbox: the food leaving, and the food arriving.
+  if (status === 'OutForDelivery') {
+    notifyOutForDelivery(order, { otp: order.pickupOtp });
+  } else if (status === 'Delivered') {
+    notifyDelivered(order);
+  }
 
   res.json(order);
 });

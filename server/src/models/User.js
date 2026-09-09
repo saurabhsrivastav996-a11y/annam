@@ -27,6 +27,10 @@ const userSchema = new mongoose.Schema(
       donationsCollected: { type: Number, default: 0 },
       mealsServed: { type: Number, default: 0 },
     },
+    // Opt-out switch honoured by every email notification.
+    notifications: {
+      email: { type: Boolean, default: true },
+    },
     isSuspended: { type: Boolean, default: false },
   },
   { timestamps: true }
@@ -51,6 +55,7 @@ userSchema.methods.toPublic = function toPublic() {
     phone: this.phone,
     address: this.address,
     isAvailable: this.isAvailable,
+    notifications: this.notifications,
     stats: this.stats,
     isSuspended: this.isSuspended,
   };
