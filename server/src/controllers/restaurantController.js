@@ -3,6 +3,13 @@ import FoodItem from '../models/FoodItem.js';
 import Reel from '../models/Reel.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { uploadMedia } from '../config/cloudinary.js';
+import { parseStreamUrl, isPlayableStreamUrl } from '../utils/streamUrl.js';
+
+/** How the client should play this kitchen's stream, if it has a usable one. */
+function resolveStream(restaurant) {
+  if (!restaurant.isTransparentKitchen) return null;
+  return parseStreamUrl(restaurant.kitchenStreamUrl);
+}
 
 /** Throws unless the caller owns this restaurant (admins bypass). */
 async function assertOwner(restaurantId, user) {
@@ -46,14 +53,14 @@ export const getRestaurant = asyncHandler(async (req, res) => {
     Reel.find({ restaurantId: restaurant._id, isFlagged: false }).sort({ createdAt: -1 }).lean(),
   ]);
 
-  res.json({ ...restaurant, menu, reels });
+  res.json({ ...restaurant, menu, reels, kitchenStream: resolveStream(restaurant) });
 });
 
 export const getMyRestaurant = asyncHandler(async (req, res) => {
   const restaurant = await Restaurant.findOne({ ownerUserId: req.user._id }).lean();
   if (!restaurant) return res.json(null);
   const menu = await FoodItem.find({ restaurantId: restaurant._id }).lean();
-  res.json({ ...restaurant, menu });
+  res.json({ ...restaurant, menu, kitchenStream: resolveStream(restaurant) });
 });
 
 export const createRestaurant = asyncHandler(async (req, res) => {
@@ -75,6 +82,11 @@ export const updateRestaurant = asyncHandler(async (req, res) => {
 
   // Ownership, ratings and approval are not client-editable, so drop them here.
   const { lng, lat, ownerUserId: _o, rating: _r, ratingCount: _rc, isApproved: _a, ...updates } = req.body;
+
+  // Reject a stream link we could never play, rather than storing a dead URL.
+  if (updates.kitchenStreamUrl !== undefined && !isPlayableStreamUrl(updates.kitchenStreamUrl)) {
+    throw new ApiError(400, 'Paste a YouTube video/live link, or a direct .mp4/.m3u8 URL');
+  }
   Object.assign(restaurant, updates);
   if (lng && lat) restaurant.location = { type: 'Point', coordinates: [Number(lng), Number(lat)] };
 

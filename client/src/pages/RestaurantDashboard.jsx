@@ -9,6 +9,14 @@ import FoodImage from '../components/FoodImage.jsx';
 
 const TABS = ['Orders', 'Menu', 'Reels', 'Annadevta', 'Profile'];
 
+/** Video id out of watch?v=, youtu.be/, /live/, /embed/ and /shorts/ links. */
+function extractYouTubeId(raw) {
+  const match = String(raw || '').match(
+    /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|live\/|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/
+  );
+  return match ? match[1] : null;
+}
+
 // What the restaurant can do next, given the current order status.
 const NEXT_ACTION = {
   Placed: { status: 'Accepted', label: 'Accept order' },
@@ -520,6 +528,16 @@ function ProfileTab({ restaurant, reload, busy, run }) {
     kitchenStreamUrl: restaurant.kitchenStreamUrl || '',
   });
 
+  // Mirrors the server's parser so the owner sees the embed (or the problem)
+  // before saving; the server validates again on write.
+  const youtubeId = extractYouTubeId(form.kitchenStreamUrl);
+  const isDirectFile = /^https?:\/\/.+\.(mp4|webm|m3u8)(\?|$)/i.test(form.kitchenStreamUrl.trim());
+  const embedUrl = youtubeId ? `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&modestbranding=1` : null;
+  const streamError =
+    form.kitchenStreamUrl.trim() && !youtubeId && !isDirectFile
+      ? 'Not a link we can play. Use a YouTube video/live link, or a direct .mp4/.m3u8 URL.'
+      : '';
+
   const save = (e) => {
     e.preventDefault();
     run(async () => {
@@ -558,12 +576,32 @@ function ProfileTab({ restaurant, reload, busy, run }) {
       </label>
 
       {form.isTransparentKitchen && (
-        <Field label="Kitchen stream URL" hint="An MP4/HLS URL from your camera. Leave blank to show the badge only.">
-          <input className={inputCls} value={form.kitchenStreamUrl} onChange={(e) => setForm({ ...form, kitchenStreamUrl: e.target.value })} />
-        </Field>
+        <div className="rounded-xl border border-leaf-200 bg-leaf-50 p-4">
+          <Field
+            label="Kitchen stream link"
+            hint="Go live on YouTube from a phone in your kitchen, then paste the video link here. A direct .mp4/.m3u8 camera URL also works. Leave blank to show the badge only."
+            error={streamError}
+          >
+            <input
+              className={inputCls}
+              placeholder="https://www.youtube.com/watch?v=…"
+              value={form.kitchenStreamUrl}
+              onChange={(e) => setForm({ ...form, kitchenStreamUrl: e.target.value })}
+            />
+          </Field>
+
+          {embedUrl && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-medium text-leaf-900">Preview — this is what customers see</p>
+              <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+                <iframe src={embedUrl} title="Kitchen stream preview" className="size-full" allowFullScreen />
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
-      <Button type="submit" busy={busy}>Save changes</Button>
+      <Button type="submit" busy={busy} disabled={Boolean(streamError)}>Save changes</Button>
     </form>
   );
 }

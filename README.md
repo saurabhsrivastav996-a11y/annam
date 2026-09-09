@@ -3,7 +3,7 @@
 A MERN food-delivery platform built around three ideas that ordinary delivery apps don't cover:
 
 - **Food reels** — restaurants post short cooking videos, so discovery is a feed you scroll rather than a grid of static photos.
-- **Kitchen transparency** — participating restaurants can expose a live kitchen feed, so hygiene is something you check before ordering rather than hope for.
+- **Kitchen transparency** — a restaurant goes live on YouTube from a phone in its kitchen and pastes the link; customers watch the feed on the restaurant page before ordering, so hygiene is something you check rather than hope for.
 - **Annadevta** — restaurants post surplus food at closing time instead of binning it; nearby volunteers claim a pickup and get it to people who need it.
 
 Five roles share one system: **customer**, **restaurant**, **delivery partner**, **Annadevta volunteer**, and **admin**.
@@ -55,7 +55,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 55 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 84 tests) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run seed` | Wipe and reseed the database |
@@ -127,6 +127,12 @@ Both `.env` files are created from their `.env.example` on first checkout; every
 
 Maps use **Leaflet with OpenStreetMap tiles**, which need no API key and no billing account, so tracking works out of the box. `VITE_GOOGLE_MAPS_API_KEY` is reserved for swapping in Google Maps later; nothing reads it today.
 
+### Kitchen transparency
+
+A restaurant enables transparency in **My Kitchen → Profile** and pastes a stream link. Running our own WebRTC/RTMP ingest would mean operating transcoding and a CDN; YouTube Live already does that for free and a restaurant can go live from the phone already in its kitchen, so a pasted YouTube link is the practical path.
+
+`watch?v=`, `youtu.be/`, `/live/`, `/embed/` and `/shorts/` links all work, as do direct `.mp4`/`.m3u8` URLs for anyone with their own camera feed. The link is parsed server-side (`server/src/utils/streamUrl.js`) and the API hands the client a ready-to-use embed URL, so the browser never has to guess. Unplayable links are rejected on save, and the dashboard previews the embed before you commit to it. Embeds use `youtube-nocookie.com` with related videos switched off.
+
 ### Media
 
 The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scripts/build-seed-reels.mjs` (a slow push-in over each dish photo). Public stock-video hosts block hotlinking, so shipping the clips is what makes reels actually play offline. Regenerate them with `node scripts/build-seed-reels.mjs` (needs ffmpeg); you only need this if you change the demo content.
@@ -153,7 +159,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-55 integration tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, and admin controls.
+84 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, and admin controls.
 
 ---
 
@@ -172,7 +178,7 @@ For production you must set `MONGODB_URI` (MongoDB Atlas), a strong `JWT_SECRET`
 This is a working MVP, not a production service. Specifically:
 
 - **Payments are simulated.** Choosing "Card" marks the order paid without contacting any gateway, and no card details are collected anywhere.
-- **Kitchen transparency is a video URL**, not a streaming stack. A restaurant can point at an MP4/HLS URL; there is no WebRTC/RTMP ingest.
+- **Kitchen transparency rides on YouTube Live**, not our own streaming stack. That is a deliberate trade: it is free and works today, but the stream lives on YouTube's terms — it is public to anyone with the link, and there is no in-app recording or retention.
 - **Delivery addresses are not geocoded.** Checkout attaches a fixed demo coordinate in Bengaluru rather than resolving the typed address.
 - **Notifications are in-app only** — no email or push.
 - **Reels have no moderation queue**, only an admin flag that hides a reel from the public feed.

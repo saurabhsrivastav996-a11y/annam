@@ -102,6 +102,52 @@ describe('menu management', () => {
   });
 });
 
+describe('kitchen transparency', () => {
+  it('resolves a saved YouTube link into an embed for the client', async () => {
+    await request(app)
+      .put(`/api/restaurants/${restaurant._id}`)
+      .set(auth(owner.token))
+      .send({ isTransparentKitchen: true, kitchenStreamUrl: 'https://youtu.be/dQw4w9WgXcQ' });
+
+    const res = await request(app).get(`/api/restaurants/${restaurant._id}`);
+
+    expect(res.body.kitchenStream).toMatchObject({
+      kind: 'youtube',
+      embedUrl: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&modestbranding=1',
+    });
+  });
+
+  it('rejects a link it could never play', async () => {
+    const res = await request(app)
+      .put(`/api/restaurants/${restaurant._id}`)
+      .set(auth(owner.token))
+      .send({ isTransparentKitchen: true, kitchenStreamUrl: 'https://example.com/not-a-stream' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('allows transparency with no stream link yet', async () => {
+    const res = await request(app)
+      .put(`/api/restaurants/${restaurant._id}`)
+      .set(auth(owner.token))
+      .send({ isTransparentKitchen: true, kitchenStreamUrl: '' });
+
+    expect(res.status).toBe(200);
+    const detail = await request(app).get(`/api/restaurants/${restaurant._id}`);
+    expect(detail.body.kitchenStream).toBeNull();
+  });
+
+  it('reports no stream while transparency is switched off', async () => {
+    await request(app)
+      .put(`/api/restaurants/${restaurant._id}`)
+      .set(auth(owner.token))
+      .send({ isTransparentKitchen: false, kitchenStreamUrl: 'https://youtu.be/dQw4w9WgXcQ' });
+
+    const res = await request(app).get(`/api/restaurants/${restaurant._id}`);
+    expect(res.body.kitchenStream).toBeNull();
+  });
+});
+
 describe('one restaurant per owner', () => {
   it('refuses a second profile', async () => {
     const res = await request(app)

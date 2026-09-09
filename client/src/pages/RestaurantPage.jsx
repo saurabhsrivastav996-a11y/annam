@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext.jsx';
 import { mediaUrl } from '../services/api.js';
 import ReelsRail from '../components/ReelsRail.jsx';
 import MapView from '../components/MapView.jsx';
+import KitchenStream from '../components/KitchenStream.jsx';
 import { Button, PageLoader, Stars, VegDot, rupees, EmptyState } from '../components/ui.jsx';
 import FoodImage from '../components/FoodImage.jsx';
 
@@ -80,25 +81,7 @@ export default function RestaurantPage() {
         {restaurant.description && <p className="max-w-2xl text-stone-600">{restaurant.description}</p>}
 
         {restaurant.isTransparentKitchen && (
-          <section className="rounded-2xl border border-leaf-200 bg-leaf-50 p-5">
-            <h2 className="flex items-center gap-2 font-semibold text-leaf-900">
-              <Eye size={17} /> Live kitchen feed
-            </h2>
-            {restaurant.kitchenStreamUrl ? (
-              <video
-                src={mediaUrl(restaurant.kitchenStreamUrl)}
-                controls
-                muted
-                playsInline
-                className="mt-3 aspect-video w-full rounded-xl bg-black object-cover"
-              />
-            ) : (
-              <p className="mt-1 text-sm text-leaf-800">
-                This kitchen is enrolled in kitchen transparency. The owner has not started a stream
-                right now — check back around meal times.
-              </p>
-            )}
-          </section>
+          <KitchenStream stream={restaurant.kitchenStream} restaurantName={restaurant.name} />
         )}
 
         {restaurant.reels?.length > 0 && (
