@@ -7,6 +7,7 @@ import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { uploadMedia } from '../config/cloudinary.js';
 import { parseStreamUrl, isPlayableStreamUrl } from '../utils/streamUrl.js';
 import { roadDistanceKm, travelMinutes, pointToCoord, PREP_MINUTES } from '../utils/geo.js';
+import { pageSize, cursorFilter, pageResult } from '../utils/paginate.js';
 
 /** How the client should play this kitchen's stream, if it has a usable one. */
 function resolveStream(restaurant) {
@@ -153,17 +154,21 @@ function displayName(name) {
  */
 export const listReviews = asyncHandler(async (req, res) => {
   const restaurantId = req.params.id;
-  const limit = Math.min(Number(req.query.limit) || 20, 50);
+  const size = pageSize(req.query.limit);
 
   const exists = await Restaurant.exists({ _id: restaurantId });
   if (!exists) throw new ApiError(404, 'Restaurant not found');
 
   const [orders, breakdown] = await Promise.all([
-    Order.find({ restaurantId, rating: { $exists: true, $ne: null } })
+    Order.find({
+      restaurantId,
+      rating: { $exists: true, $ne: null },
+      ...cursorFilter(req.query.cursor),
+    })
       .select('rating review createdAt customerId items')
       .populate('customerId', 'name')
-      .sort({ createdAt: -1 })
-      .limit(limit)
+      .sort({ _id: -1 })
+      .limit(size + 1)
       .lean(),
     Order.aggregate([
       { $match: { restaurantId: new mongoose.Types.ObjectId(restaurantId), rating: { $ne: null } } },
@@ -181,11 +186,8 @@ export const listReviews = asyncHandler(async (req, res) => {
     ? Number((Object.entries(counts).reduce((sum, [star, n]) => sum + star * n, 0) / total).toFixed(2))
     : 0;
 
-  res.json({
-    average,
-    total,
-    counts,
-    reviews: orders.map((o) => ({
+  const page = pageResult(
+    orders.map((o) => ({
       id: o._id,
       rating: o.rating,
       review: o.review || '',
@@ -193,8 +195,12 @@ export const listReviews = asyncHandler(async (req, res) => {
       // What they actually ate gives the rating context.
       dishes: (o.items || []).map((i) => i.name).filter(Boolean).slice(0, 3),
       createdAt: o.createdAt,
+      _id: o._id,
     })),
-  });
+    size
+  );
+
+  res.json({ average, total, counts, reviews: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore });
 });
 
 // ---- Menu ----

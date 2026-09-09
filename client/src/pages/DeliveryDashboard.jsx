@@ -20,7 +20,8 @@ const SIM_ROUTE = [
 export default function DeliveryDashboard() {
   const { user, setUser } = useAuth();
   const toast = useToast();
-  const { data: orders, loading, reload } = useFetch('/orders');
+  const { data: orderPage, loading, reload } = useFetch('/orders');
+  const orders = orderPage?.items;
   const [busy, setBusy] = useState(false);
   const [sharing, setSharing] = useState(null);
   const [otp, setOtp] = useState('');

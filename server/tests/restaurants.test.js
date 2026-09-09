@@ -355,8 +355,9 @@ describe('reels', () => {
     const list = await request(app).get('/api/reels');
 
     expect(created.status).toBe(201);
-    expect(list.body).toHaveLength(1);
-    expect(list.body[0].restaurantId.name).toBe('Test Kitchen');
+    expect(list.body.items).toHaveLength(1);
+    expect(list.body.items[0].restaurantId.name).toBe('Test Kitchen');
+    expect(list.body.hasMore).toBe(false);
   });
 
   it('does not let another restaurant delete it', async () => {

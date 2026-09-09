@@ -4,6 +4,7 @@ import Order from '../models/Order.js';
 import Donation from '../models/Donation.js';
 import Reel from '../models/Reel.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
+import { pageSize, cursorFilter, pageResult } from '../utils/paginate.js';
 
 export const stats = asyncHandler(async (req, res) => {
   const [users, restaurants, orders, donations, reels, revenueAgg, byRole, byStatus] = await Promise.all([
@@ -40,8 +41,13 @@ export const listUsers = asyncHandler(async (req, res) => {
     const rx = new RegExp(String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ name: rx }, { email: rx }];
   }
-  const users = await User.find(filter).sort({ createdAt: -1 }).limit(200);
-  res.json(users.map((u) => ({ ...u.toPublic(), createdAt: u.createdAt })));
+  const size = pageSize(req.query.limit, 50);
+  const users = await User.find({ ...filter, ...cursorFilter(req.query.cursor) })
+    .sort({ _id: -1 })
+    .limit(size + 1);
+
+  const page = users.map((u) => ({ ...u.toPublic(), _id: u._id, createdAt: u.createdAt }));
+  res.json(pageResult(page, size));
 });
 
 export const setUserSuspended = asyncHandler(async (req, res) => {
@@ -65,12 +71,14 @@ export const setRestaurantApproval = asyncHandler(async (req, res) => {
 });
 
 export const listAllOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find()
+  const size = pageSize(req.query.limit, 50);
+  const orders = await Order.find(cursorFilter(req.query.cursor))
     .populate('restaurantId', 'name')
     .populate('customerId', 'name email')
-    .sort({ createdAt: -1 })
-    .limit(200);
-  res.json(orders);
+    .sort({ _id: -1 })
+    .limit(size + 1);
+
+  res.json(pageResult(orders, size));
 });
 
 export const setReelFlag = asyncHandler(async (req, res) => {

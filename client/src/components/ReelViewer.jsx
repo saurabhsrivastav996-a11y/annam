@@ -3,13 +3,26 @@ import { Link } from 'react-router-dom';
 import { X, Heart, Store, Volume2, VolumeX, Eye } from 'lucide-react';
 import ReelPlayer from './ReelPlayer.jsx';
 import api from '../services/api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 /** Full-screen vertical reel feed, opened from the home rail or /reels. */
 export default function ReelViewer({ reels, startIndex = 0, onClose }) {
   const scrollerRef = useRef(null);
+  const { user } = useAuth();
   const [muted, setMuted] = useState(true);
   const [liked, setLiked] = useState({});
+  const [likeCounts, setLikeCounts] = useState({});
   const [counted, setCounted] = useState({});
+  const [needsAccount, setNeedsAccount] = useState(false);
+
+  // Show the viewer's own likes as already filled in.
+  useEffect(() => {
+    if (!user) return;
+    api
+      .get('/reels/likes/mine')
+      .then(({ data }) => setLiked(Object.fromEntries(data.map((id) => [id, true]))))
+      .catch(() => {});
+  }, [user]);
 
   // Jump to the reel the user tapped, and lock background scrolling.
   useEffect(() => {
@@ -38,10 +51,21 @@ export default function ReelViewer({ reels, startIndex = 0, onClose }) {
     [counted]
   );
 
-  const like = (id) => {
-    if (liked[id]) return;
-    setLiked((l) => ({ ...l, [id]: true }));
-    api.post(`/reels/${id}/like`).catch(() => {});
+  /** Likes are one per account and toggle, so signing in is required. */
+  const like = async (id) => {
+    if (!user) return setNeedsAccount(true);
+
+    // Optimistic, reconciled with whatever the server actually recorded.
+    const next = !liked[id];
+    setLiked((l) => ({ ...l, [id]: next }));
+
+    try {
+      const { data } = await api.post(`/reels/${id}/like`);
+      setLiked((l) => ({ ...l, [id]: data.liked }));
+      setLikeCounts((c) => ({ ...c, [id]: data.likes }));
+    } catch {
+      setLiked((l) => ({ ...l, [id]: !next }));
+    }
   };
 
   return (
@@ -60,6 +84,30 @@ export default function ReelViewer({ reels, startIndex = 0, onClose }) {
       >
         {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
       </button>
+
+      {needsAccount && (
+        <div className="absolute inset-x-0 top-1/2 z-30 mx-auto w-[min(20rem,90vw)] -translate-y-1/2 rounded-2xl bg-white p-5 text-center shadow-xl">
+          <p className="font-medium text-stone-900">Sign in to like reels</p>
+          <p className="mt-1 text-sm text-stone-600">
+            Likes are counted once per account, so we know which reels people really rate.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setNeedsAccount(false)}
+              className="flex-1 rounded-xl border border-stone-300 px-3 py-2 text-sm"
+            >
+              Not now
+            </button>
+            <Link
+              to="/login"
+              onClick={onClose}
+              className="flex-1 rounded-xl bg-saffron-500 px-3 py-2 text-sm font-medium text-white"
+            >
+              Sign in
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div ref={scrollerRef} className="snap-feed no-scrollbar h-full overflow-y-auto">
         {reels.map((reel) => {
@@ -89,7 +137,7 @@ export default function ReelViewer({ reels, startIndex = 0, onClose }) {
                     <p className="mt-2 flex items-center gap-3 text-xs text-white/70">
                       <span className="inline-flex items-center gap-1"><Eye size={12} /> {reel.views}</span>
                       <span className="inline-flex items-center gap-1">
-                        <Heart size={12} /> {reel.likes + (liked[reel._id] ? 1 : 0)}
+                        <Heart size={12} /> {likeCounts[reel._id] ?? reel.likes}
                       </span>
                     </p>
                   </div>

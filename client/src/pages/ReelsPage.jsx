@@ -6,7 +6,8 @@ import ReelViewer from '../components/ReelViewer.jsx';
 import { EmptyState, PageLoader } from '../components/ui.jsx';
 
 export default function ReelsPage() {
-  const { data: reels, loading } = useFetch('/reels?limit=50');
+  const { data: reelPage, loading } = useFetch('/reels?limit=50');
+  const reels = reelPage?.items;
   const [openAt, setOpenAt] = useState(null);
 
   if (loading) return <PageLoader label="Loading reels…" />;

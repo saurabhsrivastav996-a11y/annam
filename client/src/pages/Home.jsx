@@ -35,7 +35,8 @@ export default function Home() {
   }, [query, category, position]);
 
   const { data: restaurants, loading } = useFetch(path);
-  const { data: reels } = useFetch('/reels?limit=12');
+  const { data: reelPage } = useFetch('/reels?limit=12');
+  const reels = reelPage?.items;
   const { data: stats } = useFetch('/donations/stats');
 
   const reelCounts = useMemo(() => {

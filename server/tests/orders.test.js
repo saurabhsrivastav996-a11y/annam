@@ -270,7 +270,7 @@ describe('reading orders', () => {
     const asCustomer = await request(app).get('/api/orders').set(auth(customer.token));
     const asOther = await request(app).get('/api/orders').set(auth(other.token));
 
-    expect(asCustomer.body).toHaveLength(1);
-    expect(asOther.body).toHaveLength(0);
+    expect(asCustomer.body.items).toHaveLength(1);
+    expect(asOther.body.items).toHaveLength(0);
   });
 });

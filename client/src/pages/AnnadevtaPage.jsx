@@ -25,7 +25,8 @@ export default function AnnadevtaPage() {
   const { position } = useGeolocation({ ask: isVolunteer });
   const near = position ? `&lat=${position.lat}&lng=${position.lng}&radius=50000` : '';
   const path = tab === 'mine' ? '/donations?mine=true' : `/donations?status=Posted${near}`;
-  const { data: donations, loading, reload } = useFetch(path);
+  const { data: donationPage, loading, reload } = useFetch(path);
+  const donations = donationPage?.items;
   const { data: stats, reload: reloadStats } = useFetch('/donations/stats');
   const [busyId, setBusyId] = useState(null);
 

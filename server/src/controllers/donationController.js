@@ -5,6 +5,7 @@ import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { broadcast, emitToUser } from '../sockets/emitters.js';
 import { roadDistanceKm, travelMinutes, pointToCoord } from '../utils/geo.js';
 import { notifyDonationClaimed } from '../services/notify.js';
+import { pageSize, cursorFilter, pageResult } from '../utils/paginate.js';
 
 /** Available donations, nearest first when coordinates are supplied. */
 export const listDonations = asyncHandler(async (req, res) => {
@@ -19,7 +20,7 @@ export const listDonations = asyncHandler(async (req, res) => {
       delete filter.status;
     } else if (req.user.role === 'restaurant') {
       const restaurant = await Restaurant.findOne({ ownerUserId: req.user._id });
-      if (!restaurant) return res.json([]);
+      if (!restaurant) return res.json({ items: [], nextCursor: null, hasMore: false });
       filter.restaurantId = restaurant._id;
       delete filter.status;
     }
@@ -34,22 +35,26 @@ export const listDonations = asyncHandler(async (req, res) => {
     };
   }
 
-  const donations = await Donation.find(filter)
+  const size = pageSize(req.query.limit);
+  // A $near filter already sorts by distance, so only add the cursor sort when
+  // paging a plain list — mixing the two would fight over the ordering.
+  const near = Boolean(lat && lng);
+  const donations = await Donation.find(near ? filter : { ...filter, ...cursorFilter(req.query.cursor) })
     .populate('restaurantId', 'name address phone location')
     .populate('volunteerId', 'name phone')
-    .sort(lat && lng ? {} : { postedAt: -1 })
-    .limit(100);
+    .sort(near ? {} : { _id: -1 })
+    .limit(size + 1);
 
   // How far a volunteer would have to travel decides whether they take the run,
   // so quote it whenever we know where they are.
-  const from = lat && lng ? { lat: Number(lat), lng: Number(lng) } : null;
-  res.json(
-    donations.map((d) => {
-      if (!from) return d;
-      const distanceKm = roadDistanceKm(from, pointToCoord(d.pickupLocation));
-      return { ...d.toObject(), distanceKm, travelMinutes: travelMinutes(distanceKm) };
-    })
-  );
+  const from = near ? { lat: Number(lat), lng: Number(lng) } : null;
+  const page = donations.map((d) => {
+    if (!from) return d;
+    const distanceKm = roadDistanceKm(from, pointToCoord(d.pickupLocation));
+    return { ...d.toObject(), distanceKm, travelMinutes: travelMinutes(distanceKm) };
+  });
+
+  res.json(pageResult(page, size));
 });
 
 export const createDonation = asyncHandler(async (req, res) => {

@@ -28,12 +28,15 @@ export default function RestaurantDashboard() {
   const toast = useToast();
   const [tab, setTab] = useState('Orders');
   const { data: restaurant, loading, reload: reloadRestaurant } = useFetch('/restaurants/mine');
-  const { data: orders, reload: reloadOrders } = useFetch('/orders');
-  const { data: reels, reload: reloadReels } = useFetch(
+  const { data: orderPage, reload: reloadOrders } = useFetch('/orders');
+  const orders = orderPage?.items;
+  const { data: reelPage, reload: reloadReels } = useFetch(
     restaurant ? `/reels?restaurantId=${restaurant._id}` : null,
     { skip: !restaurant }
   );
-  const { data: donations, reload: reloadDonations } = useFetch('/donations?mine=true');
+  const reels = reelPage?.items;
+  const { data: donationPage, reload: reloadDonations } = useFetch('/donations?mine=true');
+  const donations = donationPage?.items;
   const [busy, setBusy] = useState(false);
 
   // New orders arrive over the socket.

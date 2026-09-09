@@ -8,6 +8,7 @@ import { emitToOrder, emitToUser } from '../sockets/emitters.js';
 import { roadDistanceKm, travelMinutes, etaMinutes, pointToCoord } from '../utils/geo.js';
 import { notifyOrderPlaced, notifyOutForDelivery, notifyDelivered } from '../services/notify.js';
 import { geocode } from '../services/geocode.js';
+import { pageSize, cursorFilter, pageResult } from '../utils/paginate.js';
 
 const DELIVERY_FEE = 30;
 
@@ -133,7 +134,7 @@ export const listMyOrders = asyncHandler(async (req, res) => {
     filter = { customerId: _id };
   } else if (role === 'restaurant') {
     const restaurant = await Restaurant.findOne({ ownerUserId: _id });
-    if (!restaurant) return res.json([]);
+    if (!restaurant) return res.json({ items: [], nextCursor: null, hasMore: false });
     filter = { restaurantId: restaurant._id };
   } else if (role === 'delivery') {
     // Unassigned ready orders are visible so a courier can claim one.
@@ -142,29 +143,30 @@ export const listMyOrders = asyncHandler(async (req, res) => {
     filter = {};
   } else {
     // Any other role (e.g. volunteer) has no business seeing orders at all.
-    return res.json([]);
+    return res.json({ items: [], nextCursor: null, hasMore: false });
   }
 
-  const orders = await Order.find(filter)
+  const size = pageSize(req.query.limit);
+  const orders = await Order.find({ ...filter, ...cursorFilter(req.query.cursor) })
     .populate('restaurantId', 'name address location imageUrl')
     .populate('customerId', 'name phone')
     .populate('deliveryId', 'name phone')
-    .sort({ createdAt: -1 })
-    .limit(100);
+    .sort({ _id: -1 })
+    .limit(size + 1);
 
-  res.json(
-    orders.map((o) => {
-      const withEta = { ...o.toObject(), ...orderEta(o) };
-      // A courier deciding whether to claim a job wants the ride to the kitchen too.
-      if (req.user.role === 'delivery') {
-        const restaurant = pointToCoord(o.restaurantId?.location);
-        const drop = pointToCoord(o.deliveryLocation);
-        withEta.legKm = { pickup: null, drop: roadDistanceKm(restaurant, drop) };
-        withEta.dropMinutes = travelMinutes(withEta.legKm.drop);
-      }
-      return withEta;
-    })
-  );
+  const page = orders.map((o) => {
+    const withEta = { ...o.toObject(), ...orderEta(o) };
+    // A courier deciding whether to claim a job wants the ride to the kitchen too.
+    if (req.user.role === 'delivery') {
+      const restaurant = pointToCoord(o.restaurantId?.location);
+      const drop = pointToCoord(o.deliveryLocation);
+      withEta.legKm = { pickup: null, drop: roadDistanceKm(restaurant, drop) };
+      withEta.dropMinutes = travelMinutes(withEta.legKm.drop);
+    }
+    return withEta;
+  });
+
+  res.json(pageResult(page, size));
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {

@@ -12,8 +12,10 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState('Overview');
   const [role, setRole] = useState('all');
   const { data: stats, loading, reload: reloadStats } = useFetch('/admin/stats');
-  const { data: users, reload: reloadUsers } = useFetch(`/admin/users?role=${role}`);
-  const { data: orders } = useFetch('/admin/orders');
+  const { data: userPage, reload: reloadUsers } = useFetch(`/admin/users?role=${role}`);
+  const { data: orderPage } = useFetch('/admin/orders');
+  const users = userPage?.items;
+  const orders = orderPage?.items;
   const [busy, setBusy] = useState(false);
 
   if (loading) return <PageLoader label="Loading platform metrics…" />;

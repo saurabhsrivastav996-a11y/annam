@@ -8,7 +8,8 @@ const ACTIVE = ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery'];
 
 export default function MyOrdersPage() {
   const { user } = useAuth();
-  const { data: orders, loading } = useFetch('/orders');
+  const { data: orderPage, loading } = useFetch('/orders');
+  const orders = orderPage?.items;
 
   if (loading) return <PageLoader label="Loading your orders…" />;
 
