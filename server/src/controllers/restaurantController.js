@@ -163,6 +163,7 @@ export const listReviews = asyncHandler(async (req, res) => {
     Order.find({
       restaurantId,
       rating: { $exists: true, $ne: null },
+      reviewHidden: { $ne: true },
       ...cursorFilter(req.query.cursor),
     })
       .select('rating review createdAt customerId items')

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Store, ShoppingBag, HeartHandshake, Video, IndianRupee } from 'lucide-react';
+import { Users, Store, ShoppingBag, HeartHandshake, Video, IndianRupee, Flag, EyeOff, Eye } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
 import { useToast } from '../context/ToastContext.jsx';
 import api, { errMsg } from '../services/api.js';
@@ -14,6 +14,9 @@ export default function AdminDashboard() {
   const { data: stats, loading, reload: reloadStats } = useFetch('/admin/stats');
   const { data: userPage, reload: reloadUsers } = useFetch(`/admin/users?role=${role}`);
   const { data: orderPage } = useFetch('/admin/orders');
+  const { data: reportPage, reload: reloadReports } = useFetch('/reports?status=open');
+  const { data: reportSummary, reload: reloadSummary } = useFetch('/reports/summary');
+  const reports = reportPage?.items;
   const users = userPage?.items;
   const orders = orderPage?.items;
   const [busy, setBusy] = useState(false);
@@ -48,8 +51,8 @@ export default function AdminDashboard() {
       <h1 className="font-display text-3xl font-bold text-stone-900">Admin</h1>
       <p className="mt-1 text-sm text-stone-600">Platform health, accounts and order flow.</p>
 
-      <div className="mt-6 flex gap-1.5">
-        {['Overview', 'Users', 'Orders'].map((t) => (
+      <div className="mt-6 flex flex-wrap gap-1.5">
+        {['Overview', 'Users', 'Orders', 'Moderation'].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -58,6 +61,11 @@ export default function AdminDashboard() {
             }`}
           >
             {t}
+            {t === 'Moderation' && reportSummary?.open > 0 && (
+              <span className="ml-1.5 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {reportSummary.open}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -139,6 +147,16 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {tab === 'Moderation' && (
+        <ModerationQueue
+          reports={reports}
+          onResolved={() => {
+            reloadReports();
+            reloadSummary();
+          }}
+        />
+      )}
+
       {tab === 'Orders' && (
         <div className="mt-6 overflow-x-auto rounded-2xl border border-stone-200 bg-white">
           <table className="w-full text-sm">
@@ -166,6 +184,87 @@ export default function AdminDashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Reported content, busiest first, with the two decisions an admin can make. */
+function ModerationQueue({ reports, onResolved }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(null);
+
+  const act = async (item, action) => {
+    setBusy(item.targetId);
+    try {
+      await api.put('/reports/resolve', {
+        targetType: item.targetType,
+        targetId: item.targetId,
+        action,
+      });
+      toast(action === 'hide' ? 'Content hidden' : 'Report dismissed', 'success');
+      onResolved();
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!reports?.length) {
+    return (
+      <div className="mt-6 rounded-2xl border border-dashed border-stone-300 bg-white/60 p-10 text-center">
+        <Flag className="mx-auto size-8 text-stone-300" />
+        <p className="mt-2 font-medium text-stone-700">Nothing reported</p>
+        <p className="mt-1 text-sm text-stone-500">Reels and reviews people flag will queue up here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="mt-6 space-y-3">
+      {reports.map((item) => (
+        <li key={item.targetId} className="rounded-2xl border border-stone-200 bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 font-medium text-stone-900">
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs capitalize">{item.targetType}</span>
+                {item.content?.title || item.content?.review?.slice(0, 60) || '(content removed)'}
+              </p>
+              <p className="mt-1 text-sm text-stone-500">
+                {item.content?.restaurantId?.name || 'Unknown restaurant'} · reported by{' '}
+                <strong className="text-stone-700">{item.reportCount}</strong>{' '}
+                {item.reportCount === 1 ? 'person' : 'people'}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+              <Flag size={11} /> {item.reasons.join(', ')}
+            </span>
+          </div>
+
+          {item.notes.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {item.notes.slice(0, 3).map((n, i) => (
+                <li key={i} className="text-xs text-stone-500">“{n}”</li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-200 pt-3">
+            {item.hidden ? (
+              <Button size="sm" variant="outline" busy={busy === item.targetId} onClick={() => act(item, 'restore')}>
+                <Eye size={14} /> Restore
+              </Button>
+            ) : (
+              <Button size="sm" variant="danger" busy={busy === item.targetId} onClick={() => act(item, 'hide')}>
+                <EyeOff size={14} /> Hide it
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" busy={busy === item.targetId} onClick={() => act(item, 'dismiss')}>
+              Looks fine — dismiss
+            </Button>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

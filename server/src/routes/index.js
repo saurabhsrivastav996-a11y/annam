@@ -8,6 +8,7 @@ import userRoutes from './users.js';
 import adminRoutes from './admin.js';
 import paymentRoutes from './payments.js';
 import geocodeRoutes from './geocode.js';
+import reportRoutes from './reports.js';
 
 const router = express.Router();
 
@@ -22,5 +23,6 @@ router.use('/users', userRoutes);
 router.use('/admin', adminRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/geocode', geocodeRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

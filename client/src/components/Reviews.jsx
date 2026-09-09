@@ -1,6 +1,7 @@
 import { Star, MessageSquare } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
 import { EmptyState, Spinner } from './ui.jsx';
+import ReportButton from './ReportButton.jsx';
 
 /** Relative time for recent reviews, falling back to a date for older ones. */
 function timeAgo(iso) {
@@ -95,9 +96,14 @@ export default function Reviews({ restaurantId }) {
 
                 <p className="mt-2 text-sm text-stone-700">{r.review}</p>
 
-                {r.dishes.length > 0 && (
-                  <p className="mt-2 text-xs text-stone-500">Ordered: {r.dishes.join(', ')}</p>
-                )}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  {r.dishes.length > 0 ? (
+                    <p className="text-xs text-stone-500">Ordered: {r.dishes.join(', ')}</p>
+                  ) : (
+                    <span />
+                  )}
+                  <ReportButton targetType="review" targetId={r.id} />
+                </div>
               </li>
             ))}
           </ul>

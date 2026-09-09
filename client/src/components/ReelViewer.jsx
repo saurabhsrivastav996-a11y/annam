@@ -4,6 +4,7 @@ import { X, Heart, Store, Volume2, VolumeX, Eye } from 'lucide-react';
 import ReelPlayer from './ReelPlayer.jsx';
 import api from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import ReportButton from './ReportButton.jsx';
 
 /** Full-screen vertical reel feed, opened from the home rail or /reels. */
 export default function ReelViewer({ reels, startIndex = 0, onClose }) {
@@ -139,6 +140,11 @@ export default function ReelViewer({ reels, startIndex = 0, onClose }) {
                       <span className="inline-flex items-center gap-1">
                         <Heart size={12} /> {likeCounts[reel._id] ?? reel.likes}
                       </span>
+                      <ReportButton
+                        targetType="reel"
+                        targetId={reel._id}
+                        className="!text-white/60 hover:!text-red-400"
+                      />
                     </p>
                   </div>
                 </div>

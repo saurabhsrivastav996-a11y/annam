@@ -69,6 +69,8 @@ const orderSchema = new mongoose.Schema(
     cancellationReason: String,
     rating: { type: Number, min: 1, max: 5 },
     review: String,
+    // Set by moderation; the rating still counts, the words stop being shown.
+    reviewHidden: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
