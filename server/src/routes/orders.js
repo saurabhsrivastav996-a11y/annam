@@ -50,7 +50,13 @@ router.put('/:id/accept', requireRole('delivery'), acceptDelivery);
 router.post(
   '/:id/rate',
   requireRole('customer'),
-  [body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be 1-5')],
+  [
+    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be 1-5'),
+    body('review')
+      .optional({ values: 'falsy' })
+      .isLength({ max: 500 })
+      .withMessage('Review must be 500 characters or fewer'),
+  ],
   validate,
   rateOrder
 );

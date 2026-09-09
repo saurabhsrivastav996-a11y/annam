@@ -7,9 +7,10 @@ import { useToast } from '../context/ToastContext.jsx';
 import { getSocket } from '../services/socket.js';
 import api, { errMsg } from '../services/api.js';
 import MapView from '../components/MapView.jsx';
-import { Badge, Button, PageLoader, rupees } from '../components/ui.jsx';
+import { Badge, Button, PageLoader, inputCls, rupees } from '../components/ui.jsx';
 
 const STEPS = ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery', 'Delivered'];
+const RATING_WORDS = { 1: 'Poor', 2: 'Not great', 3: 'Fine', 4: 'Good', 5: 'Excellent' };
 const PAYMENT_LABELS = {
   cod: 'Cash on delivery',
   razorpay: 'Paid online',
@@ -33,6 +34,8 @@ export default function OrderTrackingPage() {
   const [courierPos, setCourierPos] = useState(null);
   const [otp, setOtp] = useState(null);
   const [rating, setRating] = useState(0);
+  const [review, setReview] = useState('');
+  const [hovered, setHovered] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const isCustomer = order && user && order.customerId?._id === user.id;
@@ -102,7 +105,7 @@ export default function OrderTrackingPage() {
   const submitRating = async () => {
     setBusy(true);
     try {
-      const { data } = await api.post(`/orders/${id}/rate`, { rating });
+      const { data } = await api.post(`/orders/${id}/rate`, { rating, review: review.trim() });
       setOrder(data);
       toast('Thanks for rating!', 'success');
     } catch (err) {
@@ -239,30 +242,56 @@ export default function OrderTrackingPage() {
           <h2 className="text-sm font-semibold text-stone-800">
             {order.rating ? 'You rated this order' : 'How was it?'}
           </h2>
-          <div className="mt-3 flex items-center gap-1">
+
+          <div className="mt-3 flex items-center gap-1" onMouseLeave={() => setHovered(0)}>
             {[1, 2, 3, 4, 5].map((n) => (
               <button
                 key={n}
+                type="button"
                 disabled={Boolean(order.rating)}
                 onClick={() => setRating(n)}
-                aria-label={`${n} stars`}
+                onMouseEnter={() => !order.rating && setHovered(n)}
+                aria-label={`${n} star${n > 1 ? 's' : ''}`}
                 className="disabled:cursor-default"
               >
                 <Star
                   size={26}
                   className={
-                    n <= (order.rating || rating)
+                    n <= (order.rating || hovered || rating)
                       ? 'fill-amber-400 text-amber-400'
-                      : 'text-stone-300 hover:text-amber-300'
+                      : 'text-stone-300'
                   }
                 />
               </button>
             ))}
+            {!order.rating && (rating || hovered) > 0 && (
+              <span className="ml-2 text-sm text-stone-500">{RATING_WORDS[hovered || rating]}</span>
+            )}
           </div>
-          {!order.rating && (
-            <Button className="mt-3" busy={busy} disabled={!rating} onClick={submitRating}>
-              Submit rating
-            </Button>
+
+          {order.rating ? (
+            order.review && <p className="mt-3 text-sm text-stone-600">“{order.review}”</p>
+          ) : (
+            <>
+              <label className="mt-4 block">
+                <span className="mb-1 block text-sm font-medium text-stone-700">
+                  Add a review <span className="font-normal text-stone-400">(optional)</span>
+                </span>
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={review}
+                  onChange={(e) => setReview(e.target.value)}
+                  placeholder="How was the food, the packaging, the delivery?"
+                  className={inputCls}
+                />
+              </label>
+              <p className="mt-1 text-xs text-stone-400">{review.length}/500</p>
+
+              <Button className="mt-3" busy={busy} disabled={!rating} onClick={submitRating}>
+                {rating ? 'Submit review' : 'Pick a rating first'}
+              </Button>
+            </>
           )}
         </section>
       )}

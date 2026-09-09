@@ -1,6 +1,8 @@
+import mongoose from 'mongoose';
 import Restaurant from '../models/Restaurant.js';
 import FoodItem from '../models/FoodItem.js';
 import Reel from '../models/Reel.js';
+import Order from '../models/Order.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { uploadMedia } from '../config/cloudinary.js';
 import { parseStreamUrl, isPlayableStreamUrl } from '../utils/streamUrl.js';
@@ -102,6 +104,65 @@ export const deleteRestaurant = asyncHandler(async (req, res) => {
     restaurant.deleteOne(),
   ]);
   res.json({ message: 'Restaurant and its menu deleted' });
+});
+
+// ---- Reviews ----
+
+/** Public initial-only name, so a review does not publish a full identity. */
+function displayName(name) {
+  const parts = String(name || 'Guest').trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+}
+
+/**
+ * Ratings left on delivered orders for this restaurant, newest first, plus the
+ * star breakdown so the page can show the distribution rather than one average.
+ */
+export const listReviews = asyncHandler(async (req, res) => {
+  const restaurantId = req.params.id;
+  const limit = Math.min(Number(req.query.limit) || 20, 50);
+
+  const exists = await Restaurant.exists({ _id: restaurantId });
+  if (!exists) throw new ApiError(404, 'Restaurant not found');
+
+  const [orders, breakdown] = await Promise.all([
+    Order.find({ restaurantId, rating: { $exists: true, $ne: null } })
+      .select('rating review createdAt customerId items')
+      .populate('customerId', 'name')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean(),
+    Order.aggregate([
+      { $match: { restaurantId: new mongoose.Types.ObjectId(restaurantId), rating: { $ne: null } } },
+      { $group: { _id: '$rating', count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  breakdown.forEach(({ _id, count }) => {
+    if (counts[_id] !== undefined) counts[_id] = count;
+  });
+
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const average = total
+    ? Number((Object.entries(counts).reduce((sum, [star, n]) => sum + star * n, 0) / total).toFixed(2))
+    : 0;
+
+  res.json({
+    average,
+    total,
+    counts,
+    reviews: orders.map((o) => ({
+      id: o._id,
+      rating: o.rating,
+      review: o.review || '',
+      author: displayName(o.customerId?.name),
+      // What they actually ate gives the rating context.
+      dishes: (o.items || []).map((i) => i.name).filter(Boolean).slice(0, 3),
+      createdAt: o.createdAt,
+    })),
+  });
 });
 
 // ---- Menu ----

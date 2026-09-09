@@ -55,7 +55,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 101 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 113 tests) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run seed` | Wipe and reseed the database |
@@ -129,6 +129,12 @@ Both `.env` files are created from their `.env.example` on first checkout; every
 
 Maps use **Leaflet with OpenStreetMap tiles**, which need no API key and no billing account, so tracking works out of the box. `VITE_GOOGLE_MAPS_API_KEY` is reserved for swapping in Google Maps later; nothing reads it today.
 
+### Reviews and ratings
+
+A customer rates a **delivered** order from its tracking page — one to five stars plus an optional review of up to 500 characters. One review per order, and only by the person who placed it.
+
+Each restaurant page shows the average, the star distribution, and the individual reviews with the dishes they were about. Reviews are attributed by first name and last initial ("Sneha K.") rather than a full name, and the restaurant's headline average is recomputed from real ratings rather than stored independently.
+
 ### Payments
 
 Checkout offers **cash on delivery** always, and **online payment via Razorpay** (UPI, card, netbanking) once `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are set. Without keys it falls back to a simulated card so the demo still completes end to end.
@@ -176,7 +182,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-101 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+113 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 
@@ -249,3 +255,4 @@ This is a working MVP, not a production service. Specifically:
 - **Delivery addresses are not geocoded.** Checkout attaches a fixed demo coordinate in Bengaluru rather than resolving the typed address.
 - **Notifications are in-app only** — no email or push.
 - **Reels have no moderation queue**, only an admin flag that hides a reel from the public feed.
+- **Reviews are not moderated either**, and cannot be edited or removed once submitted. There is no verification beyond "you ordered this", and no reply-from-the-restaurant flow.

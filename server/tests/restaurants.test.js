@@ -4,6 +4,7 @@ import { startDb, stopDb, clearDb } from './setup.js';
 import { app, makeUser, makeRestaurantWithMenu, auth } from './helpers.js';
 import FoodItem from '../src/models/FoodItem.js';
 import Reel from '../src/models/Reel.js';
+import Order from '../src/models/Order.js';
 
 jest.setTimeout(60000);
 
@@ -145,6 +146,96 @@ describe('kitchen transparency', () => {
 
     const res = await request(app).get(`/api/restaurants/${restaurant._id}`);
     expect(res.body.kitchenStream).toBeNull();
+  });
+});
+
+describe('reviews', () => {
+  /** Rates a delivered order, which is the only way a review can exist. */
+  async function leaveReview({ rating, review, name = 'Sneha Kulkarni', email }) {
+    const reviewer = await makeUser({ email, role: 'customer', name });
+
+    const order = await Order.create({
+      customerId: reviewer.user._id,
+      restaurantId: restaurant._id,
+      items: [{ foodId: items[0]._id, name: items[0].name, price: items[0].price, qty: 1 }],
+      subtotal: items[0].price,
+      deliveryFee: 30,
+      total: items[0].price + 30,
+      status: 'Delivered',
+      deliveryAddress: '12 Test Street',
+    });
+
+    return request(app)
+      .post(`/api/orders/${order._id}/rate`)
+      .set(auth(reviewer.token))
+      .send({ rating, ...(review === undefined ? {} : { review }) });
+  }
+
+  it('is empty before anyone rates', async () => {
+    const res = await request(app).get(`/api/restaurants/${restaurant._id}/reviews`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 0, average: 0, reviews: [] });
+  });
+
+  it('returns the review with a star breakdown and average', async () => {
+    await leaveReview({ rating: 5, review: 'Excellent butter chicken', email: 'a@test.dev' });
+    await leaveReview({ rating: 4, review: 'Good, slightly cold', email: 'b@test.dev' });
+
+    const res = await request(app).get(`/api/restaurants/${restaurant._id}/reviews`);
+
+    expect(res.body.total).toBe(2);
+    expect(res.body.average).toBe(4.5);
+    expect(res.body.counts).toMatchObject({ 5: 1, 4: 1, 3: 0 });
+    expect(res.body.reviews.map((r) => r.review)).toEqual(
+      expect.arrayContaining(['Excellent butter chicken', 'Good, slightly cold'])
+    );
+  });
+
+  it('publishes only a first name and last initial', async () => {
+    await leaveReview({ rating: 5, review: 'Lovely', name: 'Sneha Kulkarni', email: 'sneha@test.dev' });
+
+    const res = await request(app).get(`/api/restaurants/${restaurant._id}/reviews`);
+
+    expect(res.body.reviews[0].author).toBe('Sneha K.');
+    // The full surname must not leak anywhere in the payload.
+    expect(JSON.stringify(res.body)).not.toContain('Kulkarni');
+    expect(JSON.stringify(res.body)).not.toContain('sneha@test.dev');
+  });
+
+  it('counts a star-only rating but returns no review text', async () => {
+    await leaveReview({ rating: 3, email: 'c@test.dev' });
+
+    const res = await request(app).get(`/api/restaurants/${restaurant._id}/reviews`);
+
+    expect(res.body.total).toBe(1);
+    expect(res.body.reviews[0].review).toBe('');
+  });
+
+  it('names the dishes the review is about', async () => {
+    await leaveReview({ rating: 5, review: 'Great', email: 'd@test.dev' });
+
+    const res = await request(app).get(`/api/restaurants/${restaurant._id}/reviews`);
+    expect(res.body.reviews[0].dishes).toEqual([items[0].name]);
+  });
+
+  it('rejects a review longer than 500 characters', async () => {
+    const res = await leaveReview({ rating: 5, review: 'x'.repeat(501), email: 'e@test.dev' });
+    expect(res.status).toBe(400);
+  });
+
+  it('ignores ratings left for other restaurants', async () => {
+    const stranger2 = await makeUser({ email: 'other-owner@test.dev', role: 'restaurant' });
+    const elsewhere = await makeRestaurantWithMenu(stranger2.user._id);
+    await leaveReview({ rating: 5, review: 'Here', email: 'f@test.dev' });
+
+    const res = await request(app).get(`/api/restaurants/${elsewhere.restaurant._id}/reviews`);
+    expect(res.body.total).toBe(0);
+  });
+
+  it('404s for a restaurant that does not exist', async () => {
+    const res = await request(app).get('/api/restaurants/000000000000000000000000/reviews');
+    expect(res.status).toBe(404);
   });
 });
 

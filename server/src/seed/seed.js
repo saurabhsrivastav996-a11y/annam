@@ -100,6 +100,48 @@ export async function seedDatabase() {
     ),
   });
 
+  // Rated, delivered orders so every restaurant page opens with real reviews,
+  // and each restaurant's average is derived from them rather than invented.
+  const tally = new Map();
+
+  for (const [i, r] of demo.reviews.entries()) {
+    const restaurant = restaurantByName.get(r.restaurant);
+    const menuItems = await FoodItem.find({ restaurantId: restaurant._id, name: { $in: r.dishes } });
+    const reviewItems = menuItems.map((f) => ({ foodId: f._id, name: f.name, price: f.price, qty: 1 }));
+    if (!reviewItems.length) continue;
+
+    const reviewSubtotal = reviewItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const placedAt = new Date(Date.now() - (i + 1) * 36e5 * 20);
+
+    await Order.create({
+      customerId: userByEmail.get(r.email)._id,
+      restaurantId: restaurant._id,
+      deliveryId: userByEmail.get('delivery@annam.dev')._id,
+      items: reviewItems,
+      subtotal: reviewSubtotal,
+      deliveryFee: 30,
+      total: reviewSubtotal + 30,
+      status: 'Delivered',
+      paymentStatus: 'paid',
+      deliveryAddress: 'Indiranagar, Bengaluru',
+      pickupOtp: '1234',
+      rating: r.rating,
+      review: r.text,
+      createdAt: placedAt,
+      statusHistory: [{ status: 'Delivered', at: placedAt }],
+    });
+
+    const current = tally.get(restaurant.name) || { sum: 0, count: 0 };
+    tally.set(restaurant.name, { sum: current.sum + r.rating, count: current.count + 1 });
+  }
+
+  for (const [name, { sum, count }] of tally) {
+    const restaurant = restaurantByName.get(name);
+    restaurant.rating = Number((sum / count).toFixed(2));
+    restaurant.ratingCount = count;
+    await restaurant.save();
+  }
+
   const counts = {
     users: await User.countDocuments(),
     restaurants: await Restaurant.countDocuments(),
@@ -107,6 +149,7 @@ export async function seedDatabase() {
     reels: await Reel.countDocuments(),
     donations: await Donation.countDocuments(),
     orders: await Order.countDocuments(),
+    reviews: await Order.countDocuments({ rating: { $ne: null } }),
   };
   return counts;
 }

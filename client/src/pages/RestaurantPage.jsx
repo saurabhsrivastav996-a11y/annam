@@ -8,6 +8,7 @@ import { mediaUrl } from '../services/api.js';
 import ReelsRail from '../components/ReelsRail.jsx';
 import MapView from '../components/MapView.jsx';
 import KitchenStream from '../components/KitchenStream.jsx';
+import Reviews from '../components/Reviews.jsx';
 import { Button, PageLoader, Stars, VegDot, rupees, EmptyState } from '../components/ui.jsx';
 import FoodImage from '../components/FoodImage.jsx';
 
@@ -143,6 +144,17 @@ export default function RestaurantPage() {
           ) : (
             <EmptyState title="Nothing on the menu here yet" hint="Try a different filter." />
           )}
+        </section>
+
+        <section>
+          <h2 className="mb-3 font-display text-xl font-bold text-stone-900">
+            Reviews {restaurant.ratingCount > 0 && (
+              <span className="text-base font-normal text-stone-500">
+                from people who ordered here
+              </span>
+            )}
+          </h2>
+          <Reviews restaurantId={restaurant._id} />
         </section>
 
         {lat != null && (

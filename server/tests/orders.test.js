@@ -188,6 +188,74 @@ describe('pickup and delivery', () => {
   });
 });
 
+describe('rating a delivered order', () => {
+  /** Walks a fresh order all the way to Delivered. */
+  async function deliveredOrder() {
+    const order = await orderReadyForPickup();
+    await request(app).put(`/api/orders/${order._id}/accept`).set(auth(courier.token));
+    const { body: otpBody } = await request(app).get(`/api/orders/${order._id}/otp`).set(auth(customer.token));
+    await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set(auth(courier.token))
+      .send({ status: 'OutForDelivery', otp: otpBody.otp });
+    await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set(auth(courier.token))
+      .send({ status: 'Delivered' });
+    return order;
+  }
+
+  it('stores the review and returns a populated order', async () => {
+    const order = await deliveredOrder();
+
+    const res = await request(app)
+      .post(`/api/orders/${order._id}/rate`)
+      .set(auth(customer.token))
+      .send({ rating: 4, review: '  Hot and on time.  ' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.rating).toBe(4);
+    // Trimmed on the way in.
+    expect(res.body.review).toBe('Hot and on time.');
+    // Populated, so the page that just submitted keeps its restaurant name.
+    expect(res.body.restaurantId.name).toEqual(expect.any(String));
+  });
+
+  it('accepts a rating with no review text', async () => {
+    const order = await deliveredOrder();
+
+    const res = await request(app)
+      .post(`/api/orders/${order._id}/rate`)
+      .set(auth(customer.token))
+      .send({ rating: 5 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.rating).toBe(5);
+  });
+
+  it('refuses a review over 500 characters', async () => {
+    const order = await deliveredOrder();
+
+    const res = await request(app)
+      .post(`/api/orders/${order._id}/rate`)
+      .set(auth(customer.token))
+      .send({ rating: 5, review: 'x'.repeat(501) });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('refuses to rate an order that is not delivered', async () => {
+    const { body: order } = await placeOrder();
+
+    const res = await request(app)
+      .post(`/api/orders/${order._id}/rate`)
+      .set(auth(customer.token))
+      .send({ rating: 5 });
+
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('reading orders', () => {
   it('hides an order from unrelated users', async () => {
     const { body: order } = await placeOrder();

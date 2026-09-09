@@ -17,6 +17,30 @@ export const users = [
   { name: 'Ravi Kumar', email: 'delivery@annam.dev', role: 'delivery', phone: '+91-98450-55555' },
   { name: 'Priya Sharma', email: 'volunteer@annam.dev', role: 'volunteer', phone: '+91-98450-66666' },
   { name: 'Annam Admin', email: 'admin@annam.dev', role: 'admin', phone: '+91-98450-77777' },
+  // Extra customers so the review list has more than one voice in it.
+  { name: 'Sneha Kulkarni', email: 'sneha@annam.dev', role: 'customer', phone: '+91-98450-88881' },
+  { name: 'Arjun Menon', email: 'arjun@annam.dev', role: 'customer', phone: '+91-98450-88882' },
+  { name: 'Fatima Sheikh', email: 'fatima@annam.dev', role: 'customer', phone: '+91-98450-88883' },
+];
+
+// Delivered orders that already carry a rating, so the reviews section is not
+// empty on a fresh install. Dishes are matched by name against the menu above.
+export const reviews = [
+  { restaurant: 'Spice Bites', email: 'sneha@annam.dev', rating: 5, dishes: ['Butter Chicken', 'Garlic Naan'],
+    text: 'The butter chicken is the real thing — properly smoky, not just cream and sugar. Watching the tandoor on their live feed before ordering sold me.' },
+  { restaurant: 'Spice Bites', email: 'arjun@annam.dev', rating: 4, dishes: ['Chicken Biryani'],
+    text: 'Biryani was excellent, though it arrived a little cooler than I would have liked. Still ordering again.' },
+  { restaurant: 'Spice Bites', email: 'fatima@annam.dev', rating: 5, dishes: ['Paneer Tikka Masala', 'Dal Makhani'],
+    text: 'Ordered the paneer tikka masala twice this week. Portions are generous and the packaging does not leak.' },
+  { restaurant: 'Coastal Curry House', email: 'sneha@annam.dev', rating: 4, dishes: ['Prawn Ghee Roast', 'Neer Dosa (4 pcs)'],
+    text: 'Ghee roast had a proper Byadgi kick. Neer dosa went slightly soggy on the way, but the flavour held up.' },
+  { restaurant: 'Coastal Curry House', email: 'arjun@annam.dev', rating: 3, dishes: ['Fish Curry Meal'],
+    text: 'Fish was fresh but the curry was milder than I expected from a Mangalorean kitchen.' },
+  { restaurant: 'Green Leaf Kitchen', email: 'fatima@annam.dev', rating: 5, dishes: ['Millet Buddha Bowl'],
+    text: 'Finally a healthy bowl that is actually filling. You can tell the vegetables were cut that morning.' },
+  { restaurant: 'Green Leaf Kitchen', email: 'sneha@annam.dev', rating: 5, dishes: ['Ragi Dosa', 'Cold-Pressed Juice'],
+    text: 'Ragi dosa with the coconut chutney is my new weekday breakfast. Zero-waste kitchen is a nice bonus.' },
+  { restaurant: 'Green Leaf Kitchen', email: 'arjun@annam.dev', rating: 4, dishes: ['Paneer Quinoa Salad'], text: '' },
 ];
 
 export const restaurants = [
@@ -28,8 +52,6 @@ export const restaurants = [
     cuisineType: 'North Indian',
     category: 'both',
     phone: '+91-80-4000-1111',
-    rating: 4.5,
-    ratingCount: 128,
     isTransparentKitchen: true,
     imageUrl: img('photo-1517248135467-4c7edcad34c4'),
     location: { type: 'Point', coordinates: [77.6408, 12.9784] },
@@ -49,8 +71,6 @@ export const restaurants = [
     cuisineType: 'South Indian',
     category: 'both',
     phone: '+91-80-4000-2222',
-    rating: 4.2,
-    ratingCount: 86,
     isTransparentKitchen: false,
     imageUrl: img('photo-1555939594-58d7cb561ad1'),
     location: { type: 'Point', coordinates: [77.6033, 12.9756] },
@@ -69,8 +89,6 @@ export const restaurants = [
     cuisineType: 'Healthy',
     category: 'veg',
     phone: '+91-80-4000-3333',
-    rating: 4.7,
-    ratingCount: 54,
     isTransparentKitchen: true,
     imageUrl: img('photo-1512621776951-a57141f2eefd'),
     location: { type: 'Point', coordinates: [77.5833, 12.9250] },

@@ -180,7 +180,7 @@ export const rateOrder = asyncHandler(async (req, res) => {
   if (order.rating) throw new ApiError(409, 'This order has already been rated');
 
   order.rating = rating;
-  order.review = review;
+  order.review = typeof review === 'string' ? review.trim() : undefined;
   await order.save();
 
   // Fold the new score into the restaurant's running average.
@@ -192,7 +192,15 @@ export const rateOrder = asyncHandler(async (req, res) => {
     await restaurant.save();
   }
 
-  res.json(order);
+  // Return the same populated shape as GET /orders/:id. Handing back a raw
+  // document would blank the restaurant and courier names on the page that
+  // just submitted the review, and hide the review it wrote.
+  const populated = await Order.findById(order._id)
+    .populate('restaurantId', 'name address phone location imageUrl')
+    .populate('customerId', 'name phone')
+    .populate('deliveryId', 'name phone location');
+
+  res.json(populated);
 });
 
 /** Customer-facing: the OTP to read out to the courier at handoff. */
