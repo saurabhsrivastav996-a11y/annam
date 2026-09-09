@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bike, MapPin, Navigation, Phone, Radio, Package } from 'lucide-react';
+import { Bike, MapPin, Navigation, Phone, Radio, Package, Clock } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getSocket } from '../services/socket.js';
+import { formatDistance, formatDuration } from '../hooks/useGeolocation.js';
 import api, { errMsg } from '../services/api.js';
 import MapView from '../components/MapView.jsx';
 import { Badge, Button, EmptyState, Field, PageLoader, inputCls, rupees } from '../components/ui.jsx';
@@ -134,8 +135,20 @@ export default function DeliveryDashboard() {
         {!claimable && markers.length > 0 && <MapView markers={markers} route height={180} className="mt-3" />}
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-200 pt-3">
-          <p className="text-sm text-stone-600">
-            Payout <strong className="text-stone-900">{rupees(order.deliveryFee)}</strong>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600">
+            <span>
+              Payout <strong className="text-stone-900">{rupees(order.deliveryFee)}</strong>
+            </span>
+            {order.legKm?.drop != null && (
+              <span className="inline-flex items-center gap-1 text-xs text-stone-500">
+                <MapPin size={12} /> {formatDistance(order.legKm.drop)} run
+              </span>
+            )}
+            {order.dropMinutes != null && (
+              <span className="inline-flex items-center gap-1 text-xs text-stone-500">
+                <Clock size={12} /> ~{formatDuration(order.dropMinutes)}
+              </span>
+            )}
           </p>
 
           <div className="flex flex-wrap gap-2">

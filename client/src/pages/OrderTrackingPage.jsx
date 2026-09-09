@@ -1,15 +1,54 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Check, Phone, Star, KeyRound, Radio } from 'lucide-react';
+import { Check, Phone, Star, KeyRound, Radio, Clock, MapPin } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getSocket } from '../services/socket.js';
+import { formatDistance, formatDuration } from '../hooks/useGeolocation.js';
 import api, { errMsg } from '../services/api.js';
 import MapView from '../components/MapView.jsx';
 import { Badge, Button, PageLoader, inputCls, rupees } from '../components/ui.jsx';
 
 const STEPS = ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery', 'Delivered'];
+// Mirrors server/src/utils/geo.js so the countdown can update between polls.
+const ROAD_WINDING_FACTOR = 1.3;
+const AVG_SPEED_KMH = 18;
+const PREP_MINUTES = { Placed: 18, Accepted: 15, Preparing: 10, Ready: 2, OutForDelivery: 0 };
+
+function haversineKm(a, b) {
+  if (!a || !b) return null;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+/** Falls back to the server's figures until the courier starts sharing GPS. */
+function liveEta(order, courierPos) {
+  if (['Delivered', 'Cancelled'].includes(order.status)) {
+    return { distanceKm: null, etaMinutes: null };
+  }
+  if (order.status !== 'OutForDelivery' || !courierPos) {
+    return { distanceKm: order.distanceKm ?? null, etaMinutes: order.etaMinutes ?? null };
+  }
+
+  const [dLng, dLat] = order.deliveryLocation?.coordinates || [];
+  if (dLat == null) return { distanceKm: null, etaMinutes: null };
+
+  const straight = haversineKm(courierPos, { lat: dLat, lng: dLng });
+  if (straight === null) return { distanceKm: null, etaMinutes: null };
+
+  const road = Number((straight * ROAD_WINDING_FACTOR).toFixed(2));
+  return {
+    distanceKm: road,
+    etaMinutes: Math.max(1, Math.ceil((road / AVG_SPEED_KMH) * 60)) + (PREP_MINUTES[order.status] ?? 0),
+  };
+}
+
 const RATING_WORDS = { 1: 'Poor', 2: 'Not great', 3: 'Fine', 4: 'Good', 5: 'Excellent' };
 const PAYMENT_LABELS = {
   cod: 'Cash on delivery',
@@ -94,6 +133,11 @@ export default function OrderTrackingPage() {
   const stepIndex = STEPS.indexOf(order.status);
   const cancelled = order.status === 'Cancelled';
 
+  // The server quotes distance and ETA from the kitchen. Once the courier is
+  // sharing GPS we recompute from where they actually are, so the estimate
+  // shortens as they approach instead of freezing at the value from pickup.
+  const live = liveEta(order, courierPos);
+
   const [rLng, rLat] = order.restaurantId?.location?.coordinates || [];
   const [dLng, dLat] = order.deliveryLocation?.coordinates || [];
   const markers = [
@@ -174,6 +218,24 @@ export default function OrderTrackingPage() {
             </span>
           )}
         </h2>
+        {(live.distanceKm != null || live.etaMinutes != null) && (
+          <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+            {live.etaMinutes != null && (
+              <span className="inline-flex items-center gap-1.5 font-medium text-stone-900">
+                <Clock size={15} className="text-saffron-500" />
+                Arriving in about {formatDuration(live.etaMinutes)}
+              </span>
+            )}
+            {live.distanceKm != null && (
+              <span className="inline-flex items-center gap-1.5 text-stone-600">
+                <MapPin size={15} className="text-stone-400" />
+                {formatDistance(live.distanceKm)} away
+              </span>
+            )}
+            <span className="text-xs text-stone-400">estimate, not a routed ETA</span>
+          </div>
+        )}
+
         <MapView markers={markers} route height={340} />
         {order.status === 'OutForDelivery' && !courierPos && (
           <p className="mt-2 text-sm text-stone-500">

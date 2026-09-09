@@ -5,6 +5,7 @@ import Restaurant from '../models/Restaurant.js';
 import User from '../models/User.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { emitToOrder, emitToUser } from '../sockets/emitters.js';
+import { roadDistanceKm, travelMinutes, etaMinutes, pointToCoord } from '../utils/geo.js';
 
 const DELIVERY_FEE = 30;
 
@@ -61,6 +62,30 @@ export const createOrder = asyncHandler(async (req, res) => {
   res.status(201).json(order);
 });
 
+/**
+ * Distance still to travel and minutes remaining.
+ * Measured from the courier once they are carrying the food, and from the
+ * kitchen before that — the leg that has not happened yet is the one that
+ * matters to the person waiting.
+ */
+export function orderEta(order, courierPosition = null) {
+  const restaurant = pointToCoord(order.restaurantId?.location);
+  const destination = pointToCoord(order.deliveryLocation);
+  if (!destination) return { distanceKm: null, etaMinutes: null };
+
+  const origin = order.status === 'OutForDelivery' && courierPosition ? courierPosition : restaurant;
+  if (!origin) return { distanceKm: null, etaMinutes: null };
+
+  if (['Delivered', 'Cancelled'].includes(order.status)) {
+    return { distanceKm: null, etaMinutes: null };
+  }
+
+  return {
+    distanceKm: roadDistanceKm(origin, destination),
+    etaMinutes: etaMinutes({ from: origin, to: destination, status: order.status }),
+  };
+}
+
 export const getOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id)
     .populate('restaurantId', 'name address phone location imageUrl')
@@ -76,7 +101,7 @@ export const getOrder = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'You cannot view this order');
   }
 
-  res.json(order);
+  res.json({ ...order.toObject(), ...orderEta(order) });
 });
 
 /** Orders for the logged-in user, scoped by their role. */
@@ -107,7 +132,19 @@ export const listMyOrders = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(100);
 
-  res.json(orders);
+  res.json(
+    orders.map((o) => {
+      const withEta = { ...o.toObject(), ...orderEta(o) };
+      // A courier deciding whether to claim a job wants the ride to the kitchen too.
+      if (req.user.role === 'delivery') {
+        const restaurant = pointToCoord(o.restaurantId?.location);
+        const drop = pointToCoord(o.deliveryLocation);
+        withEta.legKm = { pickup: null, drop: roadDistanceKm(restaurant, drop) };
+        withEta.dropMinutes = travelMinutes(withEta.legKm.drop);
+      }
+      return withEta;
+    })
+  );
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {

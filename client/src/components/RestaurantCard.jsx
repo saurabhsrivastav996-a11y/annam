@@ -1,10 +1,15 @@
 import { Link } from 'react-router-dom';
-import { Video, Eye } from 'lucide-react';
+import { Video, Eye, MapPin, Clock } from 'lucide-react';
 import { Stars, VegDot } from './ui.jsx';
 import FoodImage from './FoodImage.jsx';
+import { formatDistance, formatDuration } from '../hooks/useGeolocation.js';
 
 export default function RestaurantCard({ restaurant, reelCount = 0 }) {
-  const { _id, name, cuisineType, imageUrl, rating, ratingCount, isTransparentKitchen, category, isOpen } = restaurant;
+  const { _id, name, cuisineType, imageUrl, rating, ratingCount, isTransparentKitchen, category, isOpen,
+    distanceKm, etaMinutes } = restaurant;
+
+  const distance = formatDistance(distanceKm);
+  const eta = formatDuration(etaMinutes);
 
   return (
     <Link
@@ -46,11 +51,23 @@ export default function RestaurantCard({ restaurant, reelCount = 0 }) {
           {category !== 'both' && <VegDot category={category} />}
         </div>
         <p className="text-sm text-stone-500">{cuisineType}</p>
-        <div className="mt-auto pt-2">
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-2">
           {ratingCount > 0 ? (
             <Stars value={rating} count={ratingCount} />
           ) : (
             <span className="text-xs text-stone-400">No ratings yet</span>
+          )}
+
+          {/* Only shown once the viewer has shared a location. */}
+          {distance && (
+            <span className="inline-flex items-center gap-1 text-xs text-stone-500">
+              <MapPin size={12} /> {distance}
+            </span>
+          )}
+          {eta && (
+            <span className="inline-flex items-center gap-1 text-xs text-stone-500">
+              <Clock size={12} /> {eta}
+            </span>
           )}
         </div>
       </div>

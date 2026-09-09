@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Sparkles, HeartHandshake, Eye, UtensilsCrossed } from 'lucide-react';
+import { Search, Sparkles, HeartHandshake, Eye, UtensilsCrossed, Navigation } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
+import { useGeolocation } from '../hooks/useGeolocation.js';
 import RestaurantCard from '../components/RestaurantCard.jsx';
 import ReelsRail from '../components/ReelsRail.jsx';
 import { Button, CardSkeleton, EmptyState } from '../components/ui.jsx';
@@ -17,13 +18,21 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
 
+  const { position, status: geoStatus, request: askForLocation } = useGeolocation();
+
   const path = useMemo(() => {
     const params = new URLSearchParams();
     if (query) params.set('search', query);
     if (category !== 'all') params.set('category', category);
+    if (position) {
+      // With coordinates the server sorts by proximity and quotes distances.
+      params.set('lat', position.lat);
+      params.set('lng', position.lng);
+      params.set('radius', 50000);
+    }
     const qs = params.toString();
     return `/restaurants${qs ? `?${qs}` : ''}`;
-  }, [query, category]);
+  }, [query, category, position]);
 
   const { data: restaurants, loading } = useFetch(path);
   const { data: reels } = useFetch('/reels?limit=12');
@@ -128,9 +137,28 @@ export default function Home() {
         {/* Restaurants */}
         <section>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-2xl font-bold text-stone-900">
-              {query ? `Results for “${query}”` : 'Restaurants near you'}
-            </h2>
+            <div>
+              <h2 className="font-display text-2xl font-bold text-stone-900">
+                {query ? `Results for “${query}”` : position ? 'Nearest to you' : 'Restaurants'}
+              </h2>
+              {position ? (
+                <p className="mt-0.5 text-xs text-stone-500">
+                  Sorted by distance. Times are estimates, not a routed ETA.
+                </p>
+              ) : (
+                <button
+                  onClick={askForLocation}
+                  className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-saffron-600 hover:underline"
+                >
+                  <Navigation size={12} />
+                  {geoStatus === 'denied'
+                    ? 'Location blocked — allow it to see distances'
+                    : geoStatus === 'locating'
+                      ? 'Finding you…'
+                      : 'Use my location to show distance and delivery time'}
+                </button>
+              )}
+            </div>
             <div className="flex gap-1.5">
               {CATEGORIES.map((c) => (
                 <button

@@ -3,6 +3,7 @@ import Restaurant from '../models/Restaurant.js';
 import User from '../models/User.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { broadcast, emitToUser } from '../sockets/emitters.js';
+import { roadDistanceKm, travelMinutes, pointToCoord } from '../utils/geo.js';
 
 /** Available donations, nearest first when coordinates are supplied. */
 export const listDonations = asyncHandler(async (req, res) => {
@@ -38,7 +39,16 @@ export const listDonations = asyncHandler(async (req, res) => {
     .sort(lat && lng ? {} : { postedAt: -1 })
     .limit(100);
 
-  res.json(donations);
+  // How far a volunteer would have to travel decides whether they take the run,
+  // so quote it whenever we know where they are.
+  const from = lat && lng ? { lat: Number(lat), lng: Number(lng) } : null;
+  res.json(
+    donations.map((d) => {
+      if (!from) return d;
+      const distanceKm = roadDistanceKm(from, pointToCoord(d.pickupLocation));
+      return { ...d.toObject(), distanceKm, travelMinutes: travelMinutes(distanceKm) };
+    })
+  );
 });
 
 export const createDonation = asyncHandler(async (req, res) => {

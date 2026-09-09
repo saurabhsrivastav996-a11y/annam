@@ -5,6 +5,7 @@ import { app, makeUser, makeRestaurantWithMenu, auth } from './helpers.js';
 import FoodItem from '../src/models/FoodItem.js';
 import Reel from '../src/models/Reel.js';
 import Order from '../src/models/Order.js';
+import Restaurant from '../src/models/Restaurant.js';
 
 jest.setTimeout(60000);
 
@@ -100,6 +101,87 @@ describe('menu management', () => {
     expect(res.status).toBe(200);
     expect(await FoodItem.countDocuments({ restaurantId: restaurant._id })).toBe(0);
     expect(await Reel.countDocuments({ restaurantId: restaurant._id })).toBe(0);
+  });
+});
+
+describe('distance and ETA', () => {
+  // makeRestaurantWithMenu leaves the default location: Bengaluru city centre.
+  const CITY_CENTRE = { lat: 12.9716, lng: 77.5946 };
+  const FAR_SIDE = { lat: 13.0359, lng: 77.5970 }; // ~7 km north
+
+  it('omits distance when the caller shares no location', async () => {
+    const res = await request(app).get('/api/restaurants');
+
+    expect(res.body[0].distanceKm).toBeUndefined();
+    expect(res.body[0].etaMinutes).toBeUndefined();
+  });
+
+  it('quotes distance and a delivery estimate from the caller', async () => {
+    const res = await request(app).get(
+      `/api/restaurants?lat=${CITY_CENTRE.lat}&lng=${CITY_CENTRE.lng}`
+    );
+
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].distanceKm).toBeGreaterThanOrEqual(0);
+    expect(res.body[0].distanceKm).toBeLessThan(1);
+    expect(res.body[0].etaMinutes).toBeGreaterThan(0);
+  });
+
+  it('reads further away from further away', async () => {
+    const near = await request(app).get(
+      `/api/restaurants?lat=${CITY_CENTRE.lat}&lng=${CITY_CENTRE.lng}`
+    );
+    const far = await request(app).get(`/api/restaurants?lat=${FAR_SIDE.lat}&lng=${FAR_SIDE.lng}`);
+
+    expect(far.body[0].distanceKm).toBeGreaterThan(near.body[0].distanceKm);
+    expect(far.body[0].etaMinutes).toBeGreaterThan(near.body[0].etaMinutes);
+  });
+
+  it('sorts nearest first', async () => {
+    const owner2 = await makeUser({ email: 'far-owner@test.dev', role: 'restaurant' });
+    await Restaurant.create({
+      ownerUserId: owner2.user._id,
+      name: 'Far Kitchen',
+      address: 'Far away',
+      location: { type: 'Point', coordinates: [FAR_SIDE.lng, FAR_SIDE.lat] },
+    });
+
+    const res = await request(app).get(
+      `/api/restaurants?lat=${CITY_CENTRE.lat}&lng=${CITY_CENTRE.lng}&radius=50000`
+    );
+
+    expect(res.body.map((r) => r.name)).toEqual(['Test Kitchen', 'Far Kitchen']);
+    expect(res.body[0].distanceKm).toBeLessThan(res.body[1].distanceKm);
+  });
+
+  it('excludes anything beyond the radius', async () => {
+    const res = await request(app).get(
+      `/api/restaurants?lat=${FAR_SIDE.lat}&lng=${FAR_SIDE.lng}&radius=1000`
+    );
+
+    expect(res.body).toHaveLength(0);
+  });
+
+  it('still applies the category filter while sorting by distance', async () => {
+    const res = await request(app).get(
+      `/api/restaurants?lat=${CITY_CENTRE.lat}&lng=${CITY_CENTRE.lng}&category=non-veg`
+    );
+
+    // The seeded test restaurant defaults to 'both', which counts as a match.
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].distanceKm).toEqual(expect.any(Number));
+  });
+
+  it('adds distance to the detail route only when asked', async () => {
+    const plain = await request(app).get(`/api/restaurants/${restaurant._id}`);
+    const located = await request(app).get(
+      `/api/restaurants/${restaurant._id}?lat=${FAR_SIDE.lat}&lng=${FAR_SIDE.lng}`
+    );
+
+    expect(plain.body.distanceKm).toBeUndefined();
+    expect(located.body.distanceKm).toBeGreaterThan(1);
+    // The menu is still there alongside the estimate.
+    expect(located.body.menu).toHaveLength(items.length);
   });
 });
 

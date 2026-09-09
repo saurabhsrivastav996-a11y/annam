@@ -55,7 +55,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 113 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 137 tests) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
 | `npm run seed` | Wipe and reseed the database |
@@ -129,6 +129,16 @@ Both `.env` files are created from their `.env.example` on first checkout; every
 
 Maps use **Leaflet with OpenStreetMap tiles**, which need no API key and no billing account, so tracking works out of the box. `VITE_GOOGLE_MAPS_API_KEY` is reserved for swapping in Google Maps later; nothing reads it today.
 
+### Distance and delivery estimates
+
+Share your location on the home page and restaurants are sorted nearest-first, each showing distance and an estimated delivery time. Volunteers see how far each Annadevta pickup is; couriers see the length of the run before claiming it; the tracking page counts down as the courier approaches, recomputing from their live GPS rather than freezing at the value from pickup.
+
+There is no routing service behind this. A real one means a paid API key and a network round trip per card, so distances are computed from coordinates and multiplied by a winding factor (roads run about 30% longer than the crow-flies line), with travel time at an 18 km/h city average and remaining kitchen time added by order status. It is an estimate and the UI says so — never a routed ETA.
+
+The database does the proximity work: restaurant and donation locations are GeoJSON points with `2dsphere` indexes, and the listing uses a `$geoNear` stage so sorting and distance come from one query rather than measuring every card afterwards.
+
+**Distances are never guessed.** With no shared location the UI simply omits them rather than quoting a number from a default city centre.
+
 ### Reviews and ratings
 
 A customer rates a **delivered** order from its tracking page — one to five stars plus an optional review of up to 500 characters. One review per order, and only by the person who placed it.
@@ -182,7 +192,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-113 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+137 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 

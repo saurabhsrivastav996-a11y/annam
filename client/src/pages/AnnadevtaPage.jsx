@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HeartHandshake, MapPin, Clock, Package, Utensils } from 'lucide-react';
+import { HeartHandshake, MapPin, Clock, Package, Utensils, Navigation } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { getSocket } from '../services/socket.js';
+import { useGeolocation, formatDistance, formatDuration } from '../hooks/useGeolocation.js';
 import api, { errMsg } from '../services/api.js';
 import MapView from '../components/MapView.jsx';
 import { Badge, Button, EmptyState, PageLoader } from '../components/ui.jsx';
@@ -20,7 +21,10 @@ export default function AnnadevtaPage() {
   const isVolunteer = user?.role === 'volunteer';
 
   const [tab, setTab] = useState('Posted');
-  const path = tab === 'mine' ? '/donations?mine=true' : '/donations?status=Posted';
+  // Volunteers pick a run by how far it is, so ask where they are.
+  const { position } = useGeolocation({ ask: isVolunteer });
+  const near = position ? `&lat=${position.lat}&lng=${position.lng}&radius=50000` : '';
+  const path = tab === 'mine' ? '/donations?mine=true' : `/donations?status=Posted${near}`;
   const { data: donations, loading, reload } = useFetch(path);
   const { data: stats, reload: reloadStats } = useFetch('/donations/stats');
   const [busyId, setBusyId] = useState(null);
@@ -160,6 +164,13 @@ export default function AnnadevtaPage() {
                     <span className="inline-flex items-center gap-1.5 capitalize">
                       <Package size={14} className="text-leaf-600" /> {d.foodType}
                     </span>
+                    {d.distanceKm != null && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Navigation size={14} className="text-leaf-600" />
+                        {formatDistance(d.distanceKm)}
+                        {d.travelMinutes != null && ` · ~${formatDuration(d.travelMinutes)}`}
+                      </span>
+                    )}
                     {d.pickupBefore && (
                       <span className="inline-flex items-center gap-1.5">
                         <Clock size={14} className="text-leaf-600" />

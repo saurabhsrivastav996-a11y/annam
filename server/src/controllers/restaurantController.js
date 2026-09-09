@@ -6,6 +6,7 @@ import Order from '../models/Order.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { uploadMedia } from '../config/cloudinary.js';
 import { parseStreamUrl, isPlayableStreamUrl } from '../utils/streamUrl.js';
+import { roadDistanceKm, travelMinutes, pointToCoord, PREP_MINUTES } from '../utils/geo.js';
 
 /** How the client should play this kitchen's stream, if it has a usable one. */
 function resolveStream(restaurant) {
@@ -33,29 +34,60 @@ export const listRestaurants = asyncHandler(async (req, res) => {
     const rx = new RegExp(String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ name: rx }, { cuisineType: rx }, { description: rx }];
   }
-  if (lat && lng) {
-    filter.location = {
-      $near: {
-        $geometry: { type: 'Point', coordinates: [Number(lng), Number(lat)] },
-        $maxDistance: Number(radius),
-      },
-    };
+  // Without the customer's position we cannot honestly quote a distance, so
+  // the plain listing simply omits it rather than inventing one.
+  if (!lat || !lng) {
+    const restaurants = await Restaurant.find(filter).limit(Number(limit)).lean();
+    return res.json(restaurants);
   }
 
-  const restaurants = await Restaurant.find(filter).limit(Number(limit)).lean();
-  res.json(restaurants);
+  // $geoNear both sorts by proximity and hands back the real distance, so the
+  // list is not re-measured per card afterwards. It must lead the pipeline.
+  const near = { lat: Number(lat), lng: Number(lng) };
+  const restaurants = await Restaurant.aggregate([
+    {
+      $geoNear: {
+        near: { type: 'Point', coordinates: [near.lng, near.lat] },
+        distanceField: 'straightLineMetres',
+        maxDistance: Number(radius),
+        spherical: true,
+        query: filter,
+      },
+    },
+    { $limit: Number(limit) },
+  ]);
+
+  res.json(restaurants.map((r) => withDistance(r, near)));
 });
+
+/** Attaches an estimated road distance and delivery time from `from`. */
+function withDistance(restaurant, from) {
+  const to = pointToCoord(restaurant.location);
+  const distanceKm = roadDistanceKm(from, to);
+  const travel = travelMinutes(distanceKm);
+
+  return {
+    ...restaurant,
+    distanceKm,
+    // A fresh order still has to be cooked, so quote the full wait.
+    etaMinutes: travel === null ? null : travel + PREP_MINUTES.Placed,
+  };
+}
 
 export const getRestaurant = asyncHandler(async (req, res) => {
   const restaurant = await Restaurant.findById(req.params.id).lean();
   if (!restaurant) throw new ApiError(404, 'Restaurant not found');
+
+  const { lat, lng } = req.query;
+  const near = lat && lng ? { lat: Number(lat), lng: Number(lng) } : null;
 
   const [menu, reels] = await Promise.all([
     FoodItem.find({ restaurantId: restaurant._id }).lean(),
     Reel.find({ restaurantId: restaurant._id, isFlagged: false }).sort({ createdAt: -1 }).lean(),
   ]);
 
-  res.json({ ...restaurant, menu, reels, kitchenStream: resolveStream(restaurant) });
+  const base = near ? withDistance(restaurant, near) : restaurant;
+  res.json({ ...base, menu, reels, kitchenStream: resolveStream(restaurant) });
 });
 
 export const getMyRestaurant = asyncHandler(async (req, res) => {
