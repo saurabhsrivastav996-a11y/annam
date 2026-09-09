@@ -6,6 +6,7 @@ import { broadcast, emitToUser } from '../sockets/emitters.js';
 import { roadDistanceKm, travelMinutes, pointToCoord } from '../utils/geo.js';
 import { notifyDonationClaimed } from '../services/notify.js';
 import { pageSize, cursorFilter, pageResult } from '../utils/paginate.js';
+import { rankDonations, volunteerCapacity } from '../services/matching.js';
 
 /** Available donations, nearest first when coordinates are supplied. */
 export const listDonations = asyncHandler(async (req, res) => {
@@ -55,6 +56,52 @@ export const listDonations = asyncHandler(async (req, res) => {
   });
 
   res.json(pageResult(page, size));
+});
+
+/**
+ * Open pickups ranked for this volunteer, best first, with the reasoning.
+ *
+ * Ranked in memory: the scoring weighs a deadline against a distance against
+ * a volunteer's usual load, which no single index can express, and the open
+ * set is small by nature — surplus food is claimed within hours.
+ */
+export const recommendedDonations = asyncHandler(async (req, res) => {
+  const { lat, lng } = req.query;
+  const volunteerPosition =
+    lat && lng ? { lat: Number(lat), lng: Number(lng) } : pointToCoord(req.user.location);
+
+  const open = await Donation.find({ status: 'Posted' })
+    .populate('restaurantId', 'name address phone location')
+    .limit(200)
+    .lean();
+
+  const ranked = rankDonations({
+    donations: open,
+    volunteerPosition,
+    capacity: volunteerCapacity(req.user),
+  });
+
+  // A pickup nobody can reach in time is noise, not a recommendation.
+  const reachable = ranked.filter((r) => r.feasible);
+
+  res.json({
+    items: reachable.slice(0, pageSize(req.query.limit, 10)).map((r) => ({
+      ...r.donation,
+      match: {
+        score: r.score,
+        reasons: r.reasons,
+        factors: r.factors,
+        minutesLeft: r.minutesLeft,
+        minutesToTravel: r.minutesToTravel,
+      },
+      distanceKm: r.distanceKm,
+      travelMinutes: r.minutesToTravel,
+    })),
+    // Worth telling a volunteer that something exists but cannot be made.
+    unreachable: ranked.length - reachable.length,
+    hasMore: false,
+    nextCursor: null,
+  });
 });
 
 export const createDonation = asyncHandler(async (req, res) => {

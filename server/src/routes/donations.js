@@ -7,6 +7,7 @@ import {
   updateDonationStatus,
   cancelDonation,
   donationStats,
+  recommendedDonations,
 } from '../controllers/donationController.js';
 import { requireAuth, requireRole, optionalAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/error.js';
@@ -15,6 +16,7 @@ const router = express.Router();
 
 router.get('/stats', donationStats);
 router.get('/', optionalAuth, listDonations);
+router.get('/recommended', requireAuth, requireRole('volunteer', 'admin'), recommendedDonations);
 
 router.post(
   '/',

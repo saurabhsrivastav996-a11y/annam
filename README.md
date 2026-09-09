@@ -77,7 +77,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 204 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 222 tests) |
 | `npm run test:e2e` | Cypress end-to-end suite (needs `npm run dev` running) |
 | `npm run lint` | ESLint over server, client and scripts |
 | `npm run build` | Production build of the client |
@@ -183,6 +183,14 @@ That App Password is a credential with access to send as you — keep it out of 
 
 Two rules hold regardless of provider: **email never blocks an order** — sending is fire-and-forget and a mail outage is logged, not raised — and **every recipient can opt out** from their profile, which each template links to.
 
+### Matching surplus food to volunteers
+
+Sorting pickups by distance alone gets food wasted: the nearest donation might have six hours left while one a little further away expires in forty minutes. The Annadevta "Best for you" tab ranks open pickups for each volunteer on four things — how soon the food expires, how far it is, whether the load matches the size of run they usually take, and how long it has been sitting unclaimed. Anything that cannot be reached before its deadline is dropped from the list and counted separately, because recommending an impossible pickup helps nobody.
+
+Each card shows *why* it ranked where it did ("Expiring soon", "Very close to you"), so the ordering is arguable rather than mysterious.
+
+This is a transparent scoring function, not a learned model, and that is deliberate: there is no historical matching data to train on, the weights are visible and arguable in `server/src/services/matching.js`, and a volunteer can be told the reason. A model here would be less honest and no more accurate.
+
 ### Distance and delivery estimates
 
 Share your location on the home page and restaurants are sorted nearest-first, each showing distance and an estimated delivery time. Volunteers see how far each Annadevta pickup is; couriers see the length of the run before claiming it; the tracking page counts down as the courier approaches, recomputing from their live GPS rather than freezing at the value from pickup.
@@ -254,7 +262,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-204 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+222 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 
