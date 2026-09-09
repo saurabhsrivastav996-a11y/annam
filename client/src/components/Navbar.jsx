@@ -13,13 +13,21 @@ const DASHBOARDS = {
   admin: { to: '/dashboard/admin', label: 'Admin' },
 };
 
+// Routes that always have a link in the bar. A role whose dashboard is one of
+// them — the volunteer's, which is just the public Annadevta page — would
+// otherwise render the same link twice.
+const PRIMARY_ROUTES = ['/', '/search', '/reels', '/annadevta'];
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { count } = useCart();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const dash = user && DASHBOARDS[user.role];
+  const role = user && DASHBOARDS[user.role];
+  const dash = role && !PRIMARY_ROUTES.includes(role.to) ? role : null;
+  // A volunteer has no orders of their own, so the page would always be empty.
+  const showOrders = user && user.role !== 'volunteer';
 
   const handleLogout = () => {
     logout();
@@ -48,7 +56,7 @@ export default function Navbar() {
           <NavLink to="/search" className={link}>Search</NavLink>
           <NavLink to="/reels" className={link}>Reels</NavLink>
           <NavLink to="/annadevta" className={link}>Annadevta</NavLink>
-          {user && <NavLink to="/orders" className={link}>My Orders</NavLink>}
+          {showOrders && <NavLink to="/orders" className={link}>My Orders</NavLink>}
           {dash && <NavLink to={dash.to} className={link}>{dash.label}</NavLink>}
         </div>
 
@@ -109,7 +117,7 @@ export default function Navbar() {
             <NavLink to="/annadevta" className={link} onClick={() => setOpen(false)}>
               <HeartHandshake size={15} className="mr-1.5 inline" />Annadevta
             </NavLink>
-            {user && (
+            {showOrders && (
               <NavLink to="/orders" className={link} onClick={() => setOpen(false)}>
                 <ClipboardList size={15} className="mr-1.5 inline" />My Orders
               </NavLink>
