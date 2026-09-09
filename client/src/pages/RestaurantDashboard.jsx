@@ -238,12 +238,14 @@ function OrdersTab({ orders, busy, reload, run }) {
                 size="sm"
                 variant="danger"
                 busy={busy}
-                onClick={() =>
+                onClick={() => {
+                  const reason = window.prompt('Why are you cancelling? The customer sees this.');
+                  if (reason === null) return; // dismissed
                   run(async () => {
-                    await api.put(`/orders/${order._id}/status`, { status: 'Cancelled' });
+                    await api.put(`/orders/${order._id}/status`, { status: 'Cancelled', reason });
                     reload();
-                  }, 'Order cancelled')
-                }
+                  }, 'Order cancelled — any payment is being refunded');
+                }}
               >
                 Cancel
               </Button>

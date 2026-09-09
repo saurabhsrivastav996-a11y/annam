@@ -50,6 +50,11 @@ function liveEta(order, courierPos) {
 }
 
 const RATING_WORDS = { 1: 'Poor', 2: 'Not great', 3: 'Fine', 4: 'Good', 5: 'Excellent' };
+const REFUND_LABELS = {
+  refunding: 'Refund on the way — usually 3–5 working days',
+  refunded: 'Refunded in full',
+  refund_failed: 'Refund could not be processed — please contact support',
+};
 const PAYMENT_LABELS = {
   cod: 'Cash on delivery',
   razorpay: 'Paid online',
@@ -266,6 +271,17 @@ export default function OrderTrackingPage() {
           <p className="mt-2 text-xs text-stone-500">
             {PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod} · {order.paymentStatus}
           </p>
+          {REFUND_LABELS[order.paymentStatus] && (
+            <p
+              className={`mt-2 rounded-lg px-2.5 py-1.5 text-xs ${
+                order.paymentStatus === 'refund_failed'
+                  ? 'bg-red-50 text-red-700'
+                  : 'bg-leaf-50 text-leaf-800'
+              }`}
+            >
+              {REFUND_LABELS[order.paymentStatus]}
+            </p>
+          )}
         </section>
 
         {/* Delivery details */}

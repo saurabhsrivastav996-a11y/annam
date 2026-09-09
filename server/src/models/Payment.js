@@ -36,7 +36,19 @@ const paymentSchema = new mongoose.Schema(
     razorpayOrderId: { type: String, required: true, unique: true, index: true },
     razorpayPaymentId: String,
 
-    status: { type: String, enum: ['created', 'paid', 'failed'], default: 'created', index: true },
+    status: {
+      type: String,
+      enum: ['created', 'paid', 'failed', 'refunding', 'refunded', 'refund_failed'],
+      default: 'created',
+      index: true,
+    },
+
+    // Refund, once one is requested.
+    refundId: { type: String, default: null },
+    refundedAmount: { type: Number, default: 0 },
+    refundRequestedAt: Date,
+    refundedAt: Date,
+    refundFailureReason: String,
     // Set once the payment clears, so a replayed callback cannot order twice.
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
     failureReason: String,

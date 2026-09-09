@@ -200,6 +200,29 @@ export const webhook = asyncHandler(async (req, res) => {
   }
 
   const event = JSON.parse(raw.toString('utf8'));
+
+  // Refund events carry a refund entity rather than a payment one.
+  if (event.event?.startsWith('refund.')) {
+    const refund = event?.payload?.refund?.entity;
+    if (!refund?.id) return res.json({ received: true });
+
+    const payment = await Payment.findOne({ refundId: refund.id });
+    if (payment) {
+      const settled = event.event === 'refund.processed';
+      payment.status = settled ? 'refunded' : 'refund_failed';
+      if (settled) payment.refundedAt = new Date();
+      await payment.save();
+
+      if (payment.orderId) {
+        await Order.updateOne(
+          { _id: payment.orderId },
+          { paymentStatus: settled ? 'refunded' : 'refund_failed' }
+        );
+      }
+    }
+    return res.json({ received: true });
+  }
+
   const entity = event?.payload?.payment?.entity;
   if (!entity?.order_id) return res.json({ received: true });
 

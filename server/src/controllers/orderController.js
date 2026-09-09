@@ -9,6 +9,7 @@ import { roadDistanceKm, travelMinutes, etaMinutes, pointToCoord } from '../util
 import { notifyOrderPlaced, notifyOutForDelivery, notifyDelivered } from '../services/notify.js';
 import { geocode } from '../services/geocode.js';
 import { pageSize, cursorFilter, pageResult } from '../utils/paginate.js';
+import { refundOrder } from '../services/refund.js';
 
 const DELIVERY_FEE = 30;
 
@@ -200,6 +201,14 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   order.status = status;
   order.statusHistory.push({ status, at: new Date() });
   if (status === 'Delivered') order.paymentStatus = 'paid';
+
+  if (status === 'Cancelled') {
+    if (req.body.reason) order.cancellationReason = String(req.body.reason).slice(0, 200);
+    // Awaited so the customer is told the outcome, but refundOrder never
+    // throws — a gateway problem records itself and leaves the order cancelled.
+    order.paymentStatus = await refundOrder(order);
+  }
+
   await order.save();
 
   // Order room only: everyone watching this order (customer, kitchen, courier)
