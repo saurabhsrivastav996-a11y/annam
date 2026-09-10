@@ -6,12 +6,19 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm ci
+    # --include=dev is required: NODE_ENV=production below makes npm skip
+    # devDependencies, and Vite lives there, so the client build would have no
+    # bundler. The client is built here so one service serves API and app.
+    buildCommand: npm ci --include=dev && npm run build --workspace client
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      # Express serves the built client from the same origin: one URL, no CORS.
+      # Set to false if you host the frontend separately (Vercel).
+      - key: SERVE_CLIENT
+        value: 'true'
       # Generated once by Render and kept; never commit a real secret.
       - key: JWT_SECRET
         generateValue: true

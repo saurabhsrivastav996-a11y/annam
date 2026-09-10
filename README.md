@@ -366,27 +366,26 @@ Never commit any of these. `server/.env` is gitignored; set real values in the h
 
 Express serves the API *and* the built client from one origin. No CORS, no `VITE_API_URL`, one URL, one free instance.
 
-In Render: **New → Blueprint**, point it at the repo (it reads `render.yaml`), then set these environment variables:
+In Render: **New → Blueprint**, point it at the repo. It reads `render.yaml`, which already sets the build command, `SERVE_CLIENT=true`, the health check and a generated `JWT_SECRET`. Exactly one variable is required from you:
 
 | Variable | Value |
 | --- | --- |
 | `MONGODB_URI` | your Atlas connection string |
-| `SERVE_CLIENT` | `true` |
-| `CLIENT_URL` | your Render URL, e.g. `https://annam-api.onrender.com` |
-| `SMTP_USER` / `SMTP_PASS` | No email is sent; in-app toasts and live updates still work. Set both to switch email on. |
+
+Deploy, and the whole app is at your Render URL. Then set these if you want them:
+
+| Variable | Value |
+| --- | --- |
+| `CLIENT_URL` | your Render URL, e.g. `https://annam-api.onrender.com`. Only used for links in emails — same-origin requests are allowed without it. |
+| `SMTP_USER` / `SMTP_PASS` | Off by default: no email is sent, and in-app toasts and live updates still work. Set both to switch email on. |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | optional, enables online payment |
+| `ANTHROPIC_API_KEY` | optional; search falls back to the rules parser without it |
 
-Then change the build command to also build the client:
-
-```
-npm ci && npm install --include=dev --workspace client && npm run build --workspace client
-```
-
-`JWT_SECRET` is generated for you by the blueprint. Deploy, and the whole app is at your Render URL.
+The build command is `npm ci --include=dev && npm run build --workspace client`. The `--include=dev` matters: `NODE_ENV=production` makes npm skip devDependencies, and Vite lives there, so without it the client build has no bundler.
 
 ### Option B — split (Vercel + Render)
 
-**Backend on Render:** same blueprint, but leave `SERVE_CLIENT` unset and set `CLIENT_URL` to your Vercel URL.
+**Backend on Render:** same blueprint, but set `SERVE_CLIENT` to `false` (the blueprint ships it as `true`) and set `CLIENT_URL` to your Vercel URL.
 
 **Frontend on Vercel:** import the repo, set the root directory to `client/`. `client/vercel.json` supplies the build settings and — importantly — the SPA rewrite, without which refreshing on `/annadevta` or opening a shared `/order/:id` link returns 404. Set one environment variable:
 
