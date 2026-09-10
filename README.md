@@ -137,7 +137,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 265 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 298 tests) |
 | `npm run test:e2e` | Cypress end-to-end suite (needs `npm run dev` running) |
 | `npm run shots` | Regenerate the README screenshots (needs `npm run dev` running) |
 | `npm run lint` | ESLint over server, client and scripts |
@@ -165,6 +165,7 @@ server/                 Node + Express + Mongoose (ESM)
   src/controllers/      Request handling and business rules
   src/routes/           Route tables with per-route validators
   src/sockets/          Socket.IO auth, order rooms, GPS relay
+  src/jobs/             Timers: releasing scheduled orders to kitchens
   src/seed/             Demo dataset
   seed-media/reels/     Reel clips that ship with the repo
   tests/                Jest + Supertest integration tests
@@ -181,11 +182,11 @@ The client talks to the API through Vite's dev proxy (`/api`, `/uploads`, `/seed
 ### Order lifecycle
 
 ```
-Placed → Accepted → Preparing → Ready → OutForDelivery → Delivered
-   └──────────── Cancelled ────────────┘
+Scheduled → Placed → Accepted → Preparing → Ready → OutForDelivery → Delivered
+    └─────────── Cancelled, from any state before OutForDelivery ───────────┘
 ```
 
-Transitions are enforced server-side in two dimensions: **which role** may set a status, and **which status** may follow the current one. A restaurant cannot jump `Placed → Ready`, a customer cannot accept their own order, and moving to `OutForDelivery` requires the 4-digit pickup OTP that only the customer can read. Couriers claim orders atomically, so two partners tapping "claim" cannot both win.
+Transitions are enforced server-side in two dimensions: **which role** may set a status, and **which status** may follow the current one. A restaurant cannot jump `Placed → Ready`, a customer cannot accept their own order, and moving to `OutForDelivery` requires the 4-digit pickup OTP that only the customer can read. Couriers claim orders atomically, so two partners tapping "claim" cannot both win. Customers can only change their own orders — cancelling triggers a refund, so that is checked rather than assumed. And `Scheduled → Placed` has no role at all: only the release job makes that move, so nobody can push a scheduled order to a kitchen early.
 
 ### Real-time
 
@@ -272,6 +273,14 @@ The database does the proximity work: restaurant and donation locations are GeoJ
 
 **Distances are never guessed.** With no shared location the UI simply omits them rather than quoting a number from a default city centre.
 
+### Scheduled orders
+
+A customer can book an order for any time up to 7 days ahead. It waits as `Scheduled`, then is released to the kitchen as an ordinary `Placed` order at the moment the kitchen has to start to make the slot.
+
+That start time is worked back from the slot with the same numbers as the delivery estimate: 18 minutes of prep, the ride from the kitchen to the address, and a 10-minute buffer. So it differs between a flat next door and one across the city, and a slot too soon for the distance is refused with the earliest time the kitchen can actually make. A fixed "book at least 45 minutes ahead" rule would accept a far-away order it could only deliver late.
+
+A background job in the API process checks every minute. Each order is claimed with a conditional update on its status, so overlapping runs — or two server instances — release it exactly once. If the kitchen has closed by release time, the order is cancelled and refunded rather than left for nobody. The customer is emailed on booking; the kitchen's ticket arrives at release, when there is something to do.
+
 ### Addresses
 
 Checkout resolves the typed address to a point through **Nominatim** (OpenStreetMap) — free, no API key, same provider as the map tiles. The result is shown back on a small map with a draggable pin, because geocoding is a guess and the customer is the one who knows where they live. "Use my current location" works the other way, reverse-geocoding the device position into the address field.
@@ -303,6 +312,8 @@ The seed backfills 45 days of trade so this page has something to plot on a firs
 ### Payments
 
 Checkout offers **cash on delivery** always, and **online payment via Razorpay** (UPI, card, netbanking) once `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are set. Without keys it falls back to a simulated card so the demo still completes end to end.
+
+**The [live demo](https://annam-api.onrender.com) runs without keys, so no real money moves there:** checkout offers cash on delivery and a demo card that settles instantly. Scheduled orders go through those two only — the checkout endpoint refuses a scheduled online payment rather than placing it straight away.
 
 Get free test keys from the [Razorpay dashboard](https://dashboard.razorpay.com/app/website-app-settings/api-keys) (Test Mode), put them in `server/.env`, and restart. Razorpay publishes [test card numbers](https://razorpay.com/docs/payments/payments/test-card-details/) for trying the flow; in test mode no money moves.
 
@@ -347,7 +358,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-265 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, kitchen analytics, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+298 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, kitchen analytics, scheduled orders, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 
@@ -426,6 +437,7 @@ This is a working MVP, not a production service. Specifically:
 
 - **Payments run in Razorpay test mode** unless you supply live keys, and a live deployment also needs a Razorpay account that has cleared KYC. Cancelling a paid order refunds it — a simulated card straight away, a Razorpay payment through the gateway, with refund webhooks settling the result and a refused refund recorded rather than undoing the cancellation — but there is no partial capture and no settlement reporting.
 - **Nothing goes back to Razorpay to check.** An order is created by whichever arrives first, the browser's signed callback or the `payment.captured` webhook. If both are lost — the customer closes the tab straight after paying, on a deployment with no webhook configured — Razorpay records a successful payment but Annam never creates the order. Likewise a refund Razorpay reports as still processing only settles when its webhook arrives. A reconciliation job that polls the gateway for stragglers would close both gaps.
+- **Scheduling is deliberately simple.** Kitchens have no opening hours, so one that is closed right now cannot take tomorrow's order, and one that has closed by release time has the order cancelled and refunded. Online payment cannot be scheduled yet. Releases run on a one-minute timer inside the API process, so a free-tier server that has gone to sleep releases late.
 - **Kitchen transparency rides on YouTube Live**, not our own streaming stack. That is a deliberate trade: it is free and works today, but the stream lives on YouTube's terms — it is public to anyone with the link, and there is no in-app recording or retention.
 - **Moderation is manual.** Any signed-in user can report a reel or a review, and repeat reports from the same person count once. Admins work through a queue grouped by item, busiest first, and can hide, dismiss or restore. Content stays up until an admin hides it.
 - **Reviews are write-once.** One per delivered order, only from the customer who placed it, and not editable afterwards. A moderator can hide the text while the rating still counts. There is no reply-from-the-restaurant flow.
