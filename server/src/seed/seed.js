@@ -7,6 +7,7 @@ import Donation from '../models/Donation.js';
 import Order from '../models/Order.js';
 import { connectDB, disconnectDB } from '../config/db.js';
 import * as demo from './data.js';
+import { seedHistory } from './history.js';
 
 /** Wipes and repopulates every collection with the demo dataset. */
 export async function seedDatabase() {
@@ -141,6 +142,25 @@ export async function seedDatabase() {
     restaurant.ratingCount = count;
     await restaurant.save();
   }
+
+  // Weeks of past trade, so the analytics tab has something to plot on a
+  // first run. Written last: it needs every restaurant's menu to exist.
+  const menusByRestaurantId = new Map();
+  for (const restaurant of restaurantByName.values()) {
+    menusByRestaurantId.set(
+      restaurant._id.toString(),
+      await FoodItem.find({ restaurantId: restaurant._id }).lean()
+    );
+  }
+
+  await seedHistory({
+    restaurants: [...restaurantByName.values()],
+    menusByRestaurantId,
+    customerIds: demo.users
+      .filter((u) => u.role === 'customer')
+      .map((u) => userByEmail.get(u.email)._id),
+    deliveryId: userByEmail.get('delivery@annam.dev')._id,
+  });
 
   const counts = {
     users: await User.countDocuments(),
