@@ -51,22 +51,52 @@ function waitForMapTiles() {
   cy.wait(2500);
 }
 
+/**
+ * Blocks until every reel poster on the page has actually downloaded.
+ *
+ * Reel cards in grids and rails render <video preload="none" poster=...>, so
+ * there is no decoded frame to wait for (readyState stays 0 by design) and the
+ * DOM gives no signal for when a poster has loaded. Fetching each poster
+ * through an Image first puts it in the cache, so the video paints it at once.
+ * Without this the home rail came out as five black boxes whenever the image
+ * host answered slower than a fixed delay.
+ */
+function waitForReelPosters() {
+  cy.get('video[poster]', { timeout: 15000 }).should('have.length.greaterThan', 0);
+  cy.document().then({ timeout: 30000 }, (doc) => {
+    const urls = [...new Set([...doc.querySelectorAll('video[poster]')].map((v) => v.poster))];
+    return new Promise((resolve, reject) => {
+      let pending = urls.length;
+      urls.forEach((url) => {
+        const img = new doc.defaultView.Image();
+        img.onload = () => {
+          pending -= 1;
+          if (pending === 0) resolve();
+        };
+        img.onerror = () => reject(new Error('Reel poster failed to load: ' + url));
+        img.src = url;
+      });
+    });
+  });
+  // Cached now; give the video elements a beat to paint them.
+  cy.wait(800);
+}
+
 describe('README screenshots', () => {
   it('discover feed', () => {
     signIn('customer@annam.dev');
     cy.visit('/');
     cy.contains('h1', 'Scroll into flavour');
     cy.get('a[href^="/restaurant/"]').should('have.length.greaterThan', 0);
+    waitForReelPosters();
     shoot('01-discover');
   });
 
   it('reels', () => {
     signIn('customer@annam.dev');
     cy.visit('/reels');
-    // Give the first clip a moment to paint a frame rather than a black box.
-    cy.get('video', { timeout: 15000 }).should('exist');
-    cy.wait(2500);
-    cy.screenshot('02-reels', { capture: 'viewport', overwrite: true });
+    waitForReelPosters();
+    shoot('02-reels');
   });
 
   it('natural-language search', () => {
