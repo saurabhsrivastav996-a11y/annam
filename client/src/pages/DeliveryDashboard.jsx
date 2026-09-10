@@ -13,8 +13,8 @@ import { Badge, Button, EmptyState, Field, PageLoader, inputCls, rupees } from '
 // Fallback path used when the browser denies geolocation, so the demo still
 // shows a courier moving on the customer's map.
 const SIM_ROUTE = [
-  [12.9784, 77.6408], [12.9770, 77.6380], [12.9756, 77.6350],
-  [12.9742, 77.6320], [12.9730, 77.6290], [12.9719, 77.6260],
+  [17.4126, 78.4392], [17.4210, 78.4260], [17.4295, 78.4130],
+  [17.4380, 78.4000], [17.4480, 78.3850], [17.4615, 78.3641],
 ];
 
 export default function DeliveryDashboard() {

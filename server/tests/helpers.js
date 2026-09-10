@@ -20,7 +20,7 @@ export async function makeRestaurantWithMenu(ownerUserId) {
   const restaurant = await Restaurant.create({
     ownerUserId,
     name: 'Test Kitchen',
-    address: '1 Test Road, Bengaluru',
+    address: '1 Test Road, Hyderabad',
     cuisineType: 'Indian',
   });
   const items = await FoodItem.insertMany([

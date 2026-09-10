@@ -93,8 +93,8 @@ export async function seedDatabase() {
     total: subtotal + 30,
     status: 'Delivered',
     paymentStatus: 'paid',
-    deliveryAddress: '12 Indiranagar 100ft Rd, Bengaluru 560038',
-    deliveryLocation: { type: 'Point', coordinates: [77.6408, 12.9719] },
+    deliveryAddress: '12 Kondapur Main Rd, Hyderabad 500084',
+    deliveryLocation: { type: 'Point', coordinates: [78.3641, 17.4615] },
     pickupOtp: '4821',
     statusHistory: ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery', 'Delivered'].map(
       (status, i) => ({ status, at: new Date(Date.now() - (6 - i) * 6e5) })
@@ -124,7 +124,7 @@ export async function seedDatabase() {
       total: reviewSubtotal + 30,
       status: 'Delivered',
       paymentStatus: 'paid',
-      deliveryAddress: 'Indiranagar, Bengaluru',
+      deliveryAddress: 'Kondapur, Hyderabad',
       pickupOtp: '1234',
       rating: r.rating,
       review: r.text,

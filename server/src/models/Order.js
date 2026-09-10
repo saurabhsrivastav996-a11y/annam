@@ -51,7 +51,7 @@ const orderSchema = new mongoose.Schema(
     statusHistory: [{ status: String, at: { type: Date, default: Date.now } }],
     deliveryAddress: { type: String, required: true },
     // No default: an address we could not place must read as unknown rather
-    // than silently claiming to be in the middle of Bengaluru.
+    // than silently claiming to be in the middle of Hyderabad.
     deliveryLocation: {
       type: { type: String, enum: ['Point'], default: 'Point' },
       coordinates: { type: [Number], default: undefined },

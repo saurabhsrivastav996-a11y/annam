@@ -20,11 +20,11 @@ if (!ORDER_ID) {
   process.exit(1);
 }
 
-// A short route through Indiranagar, Bengaluru — restaurant to customer.
+// Banjara Hills to Kondapur, Hyderabad — restaurant to customer.
 const ROUTE = [
-  [12.9784, 77.6408], [12.9776, 77.6392], [12.9768, 77.6374],
-  [12.9757, 77.6352], [12.9745, 77.6325], [12.9733, 77.6295],
-  [12.9724, 77.6272], [12.9719, 77.6260],
+  [17.4126, 78.4392], [17.4188, 78.4295], [17.4249, 78.4198],
+  [17.4310, 78.4101], [17.4372, 78.4004], [17.4433, 78.3900],
+  [17.4520, 78.3780], [17.4615, 78.3641],
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

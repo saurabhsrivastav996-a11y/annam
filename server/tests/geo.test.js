@@ -9,42 +9,42 @@ import {
   PREP_MINUTES,
 } from '../src/utils/geo.js';
 
-// Two real Bengaluru landmarks, ~4.3 km apart in a straight line.
-const INDIRANAGAR = { lat: 12.9784, lng: 77.6408 };
-const MG_ROAD = { lat: 12.9756, lng: 77.6033 };
+// Two real Hyderabad landmarks, ~6.5 km apart in a straight line.
+const BANJARA_HILLS = { lat: 17.4126, lng: 78.4392 };
+const MADHAPUR = { lat: 17.4485, lng: 78.3908 };
 
 describe('haversineKm', () => {
   it('measures a known city hop', () => {
-    const km = haversineKm(INDIRANAGAR, MG_ROAD);
-    expect(km).toBeGreaterThan(4);
-    expect(km).toBeLessThan(4.5);
+    const km = haversineKm(BANJARA_HILLS, MADHAPUR);
+    expect(km).toBeGreaterThan(6.3);
+    expect(km).toBeLessThan(6.7);
   });
 
   it('is zero for the same point and symmetric between two', () => {
-    expect(haversineKm(INDIRANAGAR, INDIRANAGAR)).toBeCloseTo(0, 6);
-    expect(haversineKm(INDIRANAGAR, MG_ROAD)).toBeCloseTo(haversineKm(MG_ROAD, INDIRANAGAR), 9);
+    expect(haversineKm(BANJARA_HILLS, BANJARA_HILLS)).toBeCloseTo(0, 6);
+    expect(haversineKm(BANJARA_HILLS, MADHAPUR)).toBeCloseTo(haversineKm(MADHAPUR, BANJARA_HILLS), 9);
   });
 
   it('returns null rather than NaN for unusable input', () => {
-    expect(haversineKm(null, MG_ROAD)).toBeNull();
-    expect(haversineKm({ lat: 'x', lng: 1 }, MG_ROAD)).toBeNull();
-    expect(haversineKm({ lat: 91, lng: 0 }, MG_ROAD)).toBeNull();
-    expect(haversineKm({ lat: 12, lng: 200 }, MG_ROAD)).toBeNull();
+    expect(haversineKm(null, MADHAPUR)).toBeNull();
+    expect(haversineKm({ lat: 'x', lng: 1 }, MADHAPUR)).toBeNull();
+    expect(haversineKm({ lat: 91, lng: 0 }, MADHAPUR)).toBeNull();
+    expect(haversineKm({ lat: 12, lng: 200 }, MADHAPUR)).toBeNull();
     expect(haversineKm({}, {})).toBeNull();
   });
 });
 
 describe('roadDistanceKm', () => {
   it('reads longer than the straight line, because roads bend', () => {
-    const straight = haversineKm(INDIRANAGAR, MG_ROAD);
-    const road = roadDistanceKm(INDIRANAGAR, MG_ROAD);
+    const straight = haversineKm(BANJARA_HILLS, MADHAPUR);
+    const road = roadDistanceKm(BANJARA_HILLS, MADHAPUR);
 
     expect(road).toBeGreaterThan(straight);
     expect(road).toBeCloseTo(straight * 1.3, 1);
   });
 
   it('propagates null instead of guessing', () => {
-    expect(roadDistanceKm(null, MG_ROAD)).toBeNull();
+    expect(roadDistanceKm(null, MADHAPUR)).toBeNull();
   });
 });
 
@@ -67,15 +67,15 @@ describe('travelMinutes', () => {
 
 describe('etaMinutes', () => {
   it('includes kitchen time while the order is still being cooked', () => {
-    const placed = etaMinutes({ from: INDIRANAGAR, to: MG_ROAD, status: 'Placed' });
-    const outForDelivery = etaMinutes({ from: INDIRANAGAR, to: MG_ROAD, status: 'OutForDelivery' });
+    const placed = etaMinutes({ from: BANJARA_HILLS, to: MADHAPUR, status: 'Placed' });
+    const outForDelivery = etaMinutes({ from: BANJARA_HILLS, to: MADHAPUR, status: 'OutForDelivery' });
 
     expect(placed - outForDelivery).toBe(PREP_MINUTES.Placed);
   });
 
   it('shrinks as the order moves through the kitchen', () => {
     const stages = ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery'].map((status) =>
-      etaMinutes({ from: INDIRANAGAR, to: MG_ROAD, status })
+      etaMinutes({ from: BANJARA_HILLS, to: MADHAPUR, status })
     );
 
     const sorted = [...stages].sort((a, b) => b - a);
@@ -83,12 +83,12 @@ describe('etaMinutes', () => {
   });
 
   it('returns null when either end is unknown', () => {
-    expect(etaMinutes({ from: null, to: MG_ROAD })).toBeNull();
+    expect(etaMinutes({ from: null, to: MADHAPUR })).toBeNull();
   });
 
   it('treats an unknown status as no remaining prep time', () => {
-    const unknown = etaMinutes({ from: INDIRANAGAR, to: MG_ROAD, status: 'Wat' });
-    const travelOnly = etaMinutes({ from: INDIRANAGAR, to: MG_ROAD, status: 'OutForDelivery' });
+    const unknown = etaMinutes({ from: BANJARA_HILLS, to: MADHAPUR, status: 'Wat' });
+    const travelOnly = etaMinutes({ from: BANJARA_HILLS, to: MADHAPUR, status: 'OutForDelivery' });
 
     expect(unknown).toBe(travelOnly);
   });
@@ -96,9 +96,9 @@ describe('etaMinutes', () => {
 
 describe('pointToCoord', () => {
   it('flips GeoJSON [lng, lat] into { lat, lng }', () => {
-    expect(pointToCoord({ type: 'Point', coordinates: [77.6408, 12.9784] })).toEqual({
-      lat: 12.9784,
-      lng: 77.6408,
+    expect(pointToCoord({ type: 'Point', coordinates: [78.4392, 17.4126] })).toEqual({
+      lat: 17.4126,
+      lng: 78.4392,
     });
   });
 

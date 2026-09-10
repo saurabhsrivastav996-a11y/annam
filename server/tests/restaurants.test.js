@@ -105,9 +105,9 @@ describe('menu management', () => {
 });
 
 describe('distance and ETA', () => {
-  // makeRestaurantWithMenu leaves the default location: Bengaluru city centre.
-  const CITY_CENTRE = { lat: 12.9716, lng: 77.5946 };
-  const FAR_SIDE = { lat: 13.0359, lng: 77.5970 }; // ~7 km north
+  // makeRestaurantWithMenu leaves the default location: Hyderabad city centre.
+  const CITY_CENTRE = { lat: 17.3850, lng: 78.4867 };
+  const FAR_SIDE = { lat: 17.4479, lng: 78.4891 }; // ~7 km north
 
   it('omits distance when the caller shares no location', async () => {
     const res = await request(app).get('/api/restaurants');

@@ -17,7 +17,7 @@ import { ApiError, asyncHandler } from '../utils/ApiError.js';
  * not income yet, and a cancelled one never will be.
  */
 
-// Every seeded address is in Bengaluru, and "which hour is busy" is a question
+// Every seeded address is in Hyderabad, and "which hour is busy" is a question
 // about the kitchen's own clock, not UTC.
 const TIMEZONE = 'Asia/Kolkata';
 

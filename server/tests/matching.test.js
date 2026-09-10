@@ -6,7 +6,7 @@ import {
 } from '../src/services/matching.js';
 
 const NOW = new Date('2026-01-15T12:00:00Z');
-const HERE = { lat: 12.9716, lng: 77.5946 };
+const HERE = { lat: 17.3850, lng: 78.4867 };
 
 const minutesFromNow = (m) => new Date(NOW.getTime() + m * 60000);
 

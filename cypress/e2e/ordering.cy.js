@@ -50,7 +50,7 @@ describe('ordering', () => {
     cy.addFirstDish('Spice Bites');
     cy.visit('/checkout');
 
-    cy.get('textarea').clear().type('MG Road, Bengaluru');
+    cy.get('textarea').clear().type('Hitech City Rd, Hyderabad');
     // The address resolves to a pin before the order can carry coordinates.
     cy.contains('Location pinned', { timeout: 15000 });
 

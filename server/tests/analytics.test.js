@@ -28,7 +28,7 @@ async function seedOrder({
     deliveryFee: 30,
     total: subtotal + 30,
     status,
-    deliveryAddress: '5 Test Road, Bengaluru',
+    deliveryAddress: '5 Test Road, Hyderabad',
     ...(rating ? { rating } : {}),
   });
 

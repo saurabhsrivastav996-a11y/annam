@@ -14,7 +14,7 @@ function fakeFetch(payload, { ok = true } = {}) {
   return impl;
 }
 
-const HIT = [{ lat: '12.9784', lon: '77.6408', display_name: '100ft Road, Indiranagar, Bengaluru' }];
+const HIT = [{ lat: '17.4126', lon: '78.4392', display_name: 'Road No. 12, Banjara Hills, Hyderabad' }];
 
 beforeEach(_resetCache);
 
@@ -23,9 +23,9 @@ describe('geocode', () => {
     const result = await geocode('100ft Road Indiranagar', { fetchImpl: fakeFetch(HIT) });
 
     expect(result).toEqual({
-      lat: 12.9784,
-      lng: 77.6408,
-      displayName: '100ft Road, Indiranagar, Bengaluru',
+      lat: 17.4126,
+      lng: 78.4392,
+      displayName: 'Road No. 12, Banjara Hills, Hyderabad',
     });
   });
 
@@ -70,7 +70,7 @@ describe('geocode', () => {
   });
 
   it('ignores a hit with unusable coordinates', async () => {
-    const junk = [{ lat: 'not-a-number', lon: '77.6', display_name: 'x' }];
+    const junk = [{ lat: 'not-a-number', lon: '78.4', display_name: 'x' }];
     expect(await geocode('broken payload', { fetchImpl: fakeFetch(junk) })).toBeNull();
   });
 
@@ -101,20 +101,20 @@ describe('geocode', () => {
     await geocode('this one fails', { fetchImpl: failing });
 
     const result = await geocode('this one works', { fetchImpl: fakeFetch(HIT) });
-    expect(result?.lat).toBe(12.9784);
+    expect(result?.lat).toBe(17.4126);
   });
 });
 
 describe('reverseGeocode', () => {
-  const PLACE = { display_name: '12 Indiranagar 100ft Rd, Bengaluru' };
+  const PLACE = { display_name: '12 Kondapur Main Rd, Hyderabad' };
 
   it('turns coordinates into an address', async () => {
-    const result = await reverseGeocode(12.9784, 77.6408, { fetchImpl: fakeFetch(PLACE) });
+    const result = await reverseGeocode(17.4126, 78.4392, { fetchImpl: fakeFetch(PLACE) });
 
     expect(result).toEqual({
-      lat: 12.9784,
-      lng: 77.6408,
-      displayName: '12 Indiranagar 100ft Rd, Bengaluru',
+      lat: 17.4126,
+      lng: 78.4392,
+      displayName: '12 Kondapur Main Rd, Hyderabad',
     });
   });
 

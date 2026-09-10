@@ -106,7 +106,7 @@ describe('README screenshots', () => {
             body: {
               restaurantId: r._id,
               items: [{ foodId: dish._id, qty: 2 }],
-              deliveryAddress: 'Koramangala 5th Block, Bengaluru',
+              deliveryAddress: 'Kondapur, Hyderabad',
               paymentMethod: 'cod',
             },
           }).then(({ body: order }) => {

@@ -43,7 +43,7 @@ The restaurant account opens **My Kitchen → Insights**, which has 45 days of s
 <td><b>Kitchen transparency</b> — kitchens enrolled in transparency stream to YouTube; the page says plainly when nobody is live.</td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/05-tracking.webp" alt="Order tracking: a status stepper, a pickup code, and a map of Bengaluru with the courier route"></td>
+<td><img src="docs/screenshots/05-tracking.webp" alt="Order tracking: a status stepper, a pickup code, and a map of Hyderabad with the courier route"></td>
 <td><img src="docs/screenshots/06-annadevta.webp" alt="The Annadevta page listing surplus food donations with a map of pickup points"></td>
 </tr>
 <tr>
@@ -127,7 +127,7 @@ Real-time delivery needs a customer, a kitchen and a courier acting at once. Rat
 node scripts/demo-delivery.mjs <orderId>
 ```
 
-That accepts the order, cooks it, marks it ready, claims it as the courier, reads the pickup OTP, and streams GPS along a route in Bengaluru. Watch the customer's tracking page update as it runs.
+That accepts the order, cooks it, marks it ready, claims it as the courier, reads the pickup OTP, and streams GPS along a route in Hyderabad. Watch the customer's tracking page update as it runs.
 
 ---
 

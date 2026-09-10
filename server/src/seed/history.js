@@ -24,7 +24,7 @@ const HOUR_WEIGHTS = [
 ];
 const HOUR_POOL = HOUR_WEIGHTS.flatMap(([hour, weight]) => Array(weight).fill(hour));
 
-// Bengaluru. Matters because "busiest hour" is a question about the kitchen's
+// Hyderabad. Matters because "busiest hour" is a question about the kitchen's
 // own clock, and the analytics endpoint groups in this zone.
 const TZ_OFFSET_MINUTES = 330;
 
@@ -105,7 +105,7 @@ export async function seedHistory({ restaurants, menusByRestaurantId, customerId
           status: cancelled ? 'Cancelled' : 'Delivered',
           paymentStatus: cancelled ? 'refunded' : 'paid',
           paymentMethod: 'cod',
-          deliveryAddress: 'Indiranagar, Bengaluru',
+          deliveryAddress: 'Kondapur, Hyderabad',
           ...(cancelled ? { cancellationReason: 'Customer changed their mind' } : {}),
           statusHistory: [{ status: cancelled ? 'Cancelled' : 'Delivered', at }],
           createdAt: at,

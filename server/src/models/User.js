@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     isAvailable: { type: Boolean, default: false },
     location: {
       type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], default: [77.5946, 12.9716] }, // [lng, lat]
+      coordinates: { type: [Number], default: [78.4867, 17.3850] }, // [lng, lat]
     },
     // Volunteer impact stats
     stats: {
