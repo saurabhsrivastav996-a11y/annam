@@ -66,6 +66,24 @@ describe('GET /api/payments/config', () => {
   });
 });
 
+describe('POST /api/payments/checkout', () => {
+  it('refuses to schedule an online payment for now', async () => {
+    const res = await request(app)
+      .post('/api/payments/checkout')
+      .set(auth(customer.token))
+      .send({
+        restaurantId: restaurant._id.toString(),
+        items: [{ foodId: items[0]._id.toString(), qty: 1 }],
+        deliveryAddress: '12 Test Street',
+        scheduledFor: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/cash or the demo card/);
+    expect(await Payment.countDocuments()).toBe(0);
+  });
+});
+
 describe('POST /api/payments/verify', () => {
   it('creates a paid order for a correctly signed payment', async () => {
     const payment = await pendingPayment();

@@ -30,6 +30,10 @@ router.post(
     body('items.*.foodId').isMongoId(),
     body('items.*.qty').isInt({ min: 1 }),
     body('deliveryAddress').trim().notEmpty().withMessage('Delivery address is required'),
+    body('scheduledFor')
+      .optional({ values: 'falsy' })
+      .isISO8601()
+      .withMessage('scheduledFor must be an ISO 8601 date and time'),
   ],
   validate,
   createOrder

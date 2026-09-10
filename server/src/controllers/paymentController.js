@@ -36,6 +36,12 @@ export const createCheckout = asyncHandler(async (req, res) => {
 
   const { restaurantId, items, deliveryAddress, lat, lng } = req.body;
 
+  // Scheduling only goes through cash and the demo card for now. Refuse it here
+  // rather than quietly placing a scheduled online payment straight away.
+  if (req.body.scheduledFor) {
+    throw new ApiError(400, 'Scheduled orders can be paid by cash or the demo card for now');
+  }
+
   const restaurant = await Restaurant.findById(restaurantId);
   if (!restaurant) throw new ApiError(404, 'Restaurant not found');
   if (!restaurant.isOpen) throw new ApiError(400, 'This restaurant is currently closed');

@@ -10,6 +10,7 @@ import { notifyOrderPlaced, notifyOutForDelivery, notifyDelivered } from '../ser
 import { geocode } from '../services/geocode.js';
 import { pageSize, cursorFilter, pageResult } from '../utils/paginate.js';
 import { refundOrder } from '../services/refund.js';
+import { planSchedule } from '../services/scheduling.js';
 
 const DELIVERY_FEE = 30;
 
@@ -39,7 +40,7 @@ async function resolveDeliveryPoint({ lat, lng, deliveryAddress }) {
 }
 
 export const createOrder = asyncHandler(async (req, res) => {
-  const { restaurantId, items, deliveryAddress, paymentMethod = 'cod', lat, lng } = req.body;
+  const { restaurantId, items, deliveryAddress, paymentMethod = 'cod', lat, lng, scheduledFor } = req.body;
 
   const restaurant = await Restaurant.findById(restaurantId);
   if (!restaurant) throw new ApiError(404, 'Restaurant not found');
@@ -59,6 +60,17 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   const subtotal = orderItems.reduce((sum, i) => sum + i.price * i.qty, 0);
   const deliveryPoint = await resolveDeliveryPoint({ lat, lng, deliveryAddress });
+  const deliveryLocation = deliveryPoint
+    ? { type: 'Point', coordinates: [deliveryPoint.lng, deliveryPoint.lat] }
+    : undefined;
+
+  // Null for an order wanted now; otherwise the slot and when the kitchen starts.
+  const schedule = planSchedule({
+    scheduledFor,
+    restaurantLocation: restaurant.location,
+    deliveryLocation,
+  });
+  const status = schedule ? 'Scheduled' : 'Placed';
 
   const order = await Order.create({
     customerId: req.user._id,
@@ -72,13 +84,16 @@ export const createOrder = asyncHandler(async (req, res) => {
     // Mock gateway: card payments are treated as settled on creation.
     paymentStatus: paymentMethod === 'mock-card' ? 'paid' : 'pending',
     pickupOtp: String(crypto.randomInt(1000, 9999)),
-    statusHistory: [{ status: 'Placed', at: new Date() }],
-    ...(deliveryPoint
-      ? { deliveryLocation: { type: 'Point', coordinates: [deliveryPoint.lng, deliveryPoint.lat] } }
-      : {}),
+    status,
+    ...(schedule || {}),
+    statusHistory: [{ status, at: new Date() }],
+    ...(deliveryLocation ? { deliveryLocation } : {}),
   });
 
-  emitToUser(restaurant.ownerUserId.toString(), 'order:new', { orderId: order._id });
+  // A scheduled order is upcoming work for the kitchen, not a ticket to start now.
+  emitToUser(restaurant.ownerUserId.toString(), schedule ? 'order:scheduled' : 'order:new', {
+    orderId: order._id,
+  });
   notifyOrderPlaced(order);
 
   res.status(201).json(order);
@@ -100,6 +115,12 @@ export function orderEta(order, courierPosition = null) {
 
   if (['Delivered', 'Cancelled'].includes(order.status)) {
     return { distanceKm: null, etaMinutes: null };
+  }
+
+  // A scheduled order has not started. When it arrives is the slot the customer
+  // chose, not prep-plus-ride from now, so give the distance but no countdown.
+  if (order.status === 'Scheduled') {
+    return { distanceKm: roadDistanceKm(origin, destination), etaMinutes: null };
   }
 
   return {

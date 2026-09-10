@@ -1,4 +1,5 @@
 import { env } from '../config/env.js';
+import { formatSlot } from '../utils/time.js';
 
 /**
  * Email bodies, as pure functions returning { subject, text, html }.
@@ -123,13 +124,31 @@ export function welcome({ name, role }) {
 export function orderPlaced({ order, restaurantName }) {
   const items = itemsBlock(order.items, order);
   const link = `${appUrl()}/order/${order._id}`;
+  const id = shortId(order._id);
+
+  // What a customer needs from a scheduled order is when it will turn up, not
+  // the promise of an email once it is on the way — that is hours off.
+  if (order.scheduledFor) {
+    const slot = formatSlot(order.scheduledFor);
+    return {
+      subject: `Order scheduled for ${slot} — ${restaurantName} (#${id})`,
+      text: `Your order from ${restaurantName} is scheduled for delivery around ${slot}.\n\n${items.text}\n\nTrack it: ${link}\n`,
+      html: layout({
+        heading: 'Your order is scheduled',
+        intro: `${escapeHtml(restaurantName)} will start cooking order #${id} in time to deliver it around ${escapeHtml(slot)}.`,
+        bodyHtml: items.html,
+        ctaLabel: 'Track your order',
+        ctaHref: link,
+      }),
+    };
+  }
 
   return {
-    subject: `Order confirmed — ${restaurantName} (#${shortId(order._id)})`,
+    subject: `Order confirmed — ${restaurantName} (#${id})`,
     text: `Your order from ${restaurantName} is in.\n\n${items.text}\n\nTrack it: ${link}\n`,
     html: layout({
       heading: 'Your order is in',
-      intro: `${escapeHtml(restaurantName)} has your order #${shortId(order._id)}. We will email you when it is on the way.`,
+      intro: `${escapeHtml(restaurantName)} has your order #${id}. We will email you when it is on the way.`,
       bodyHtml: items.html,
       ctaLabel: 'Track your order',
       ctaHref: link,
@@ -140,13 +159,14 @@ export function orderPlaced({ order, restaurantName }) {
 export function newOrderForRestaurant({ order, customerName }) {
   const items = itemsBlock(order.items, order);
   const link = `${appUrl()}/dashboard/restaurant`;
+  const due = order.scheduledFor ? ` Due around ${formatSlot(order.scheduledFor)}.` : '';
 
   return {
     subject: `New order #${shortId(order._id)} — ${rupees(order.total)}`,
-    text: `New order from ${customerName}.\n\n${items.text}\n\nDeliver to: ${order.deliveryAddress}\n\nAccept it: ${link}\n`,
+    text: `New order from ${customerName}.${due}\n\n${items.text}\n\nDeliver to: ${order.deliveryAddress}\n\nAccept it: ${link}\n`,
     html: layout({
       heading: `New order #${shortId(order._id)}`,
-      intro: `From ${escapeHtml(customerName)}, for delivery to ${escapeHtml(order.deliveryAddress)}.`,
+      intro: `From ${escapeHtml(customerName)}, for delivery to ${escapeHtml(order.deliveryAddress)}.${escapeHtml(due)}`,
       bodyHtml: items.html,
       ctaLabel: 'Open your kitchen',
       ctaHref: link,

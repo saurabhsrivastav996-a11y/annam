@@ -4,6 +4,7 @@ import { startDb, stopDb, clearDb } from './setup.js';
 import { app, makeUser, makeRestaurantWithMenu, auth } from './helpers.js';
 import { sentInTests } from '../src/config/mailer.js';
 import * as templates from '../src/emails/templates.js';
+import { releaseDueOrders } from '../src/services/scheduling.js';
 
 jest.setTimeout(60000);
 
@@ -150,6 +151,35 @@ describe('delivery of notifications', () => {
     expect(sentInTests.find((m) => m.to === 'kitchen@test.dev')?.subject).toContain('New order');
   });
 
+  it('holds back the kitchen ticket for a scheduled order until it is released', async () => {
+    const customer = await makeUser({ email: 'planner@test.dev', role: 'customer' });
+    const owner = await makeUser({ email: 'kitchen3@test.dev', role: 'restaurant' });
+    const { restaurant, items } = await makeRestaurantWithMenu(owner.user._id);
+    sentInTests.length = 0;
+
+    const { body: order } = await request(app)
+      .post('/api/orders')
+      .set(auth(customer.token))
+      .send({
+        restaurantId: restaurant._id.toString(),
+        items: [{ foodId: items[0]._id.toString(), qty: 1 }],
+        deliveryAddress: 'Road No. 12, Banjara Hills, Hyderabad',
+        lat: 17.4126,
+        lng: 78.4392,
+        scheduledFor: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+      });
+    await flush();
+
+    // The customer hears at once; the kitchen has nothing to act on yet.
+    expect(sentInTests.find((m) => m.to === 'planner@test.dev')?.subject).toContain('Order scheduled');
+    expect(sentInTests.find((m) => m.to === 'kitchen3@test.dev')).toBeUndefined();
+
+    await releaseDueOrders({ now: new Date(new Date(order.releaseAt).getTime() + 60_000) });
+    await flush();
+
+    expect(sentInTests.find((m) => m.to === 'kitchen3@test.dev')?.subject).toContain('New order');
+  });
+
   it('sends nothing to an account that has turned email off', async () => {
     const customer = await makeUser({ email: 'quiet@test.dev', role: 'customer' });
     const owner = await makeUser({ email: 'kitchen2@test.dev', role: 'restaurant' });
@@ -198,5 +228,33 @@ describe('delivery of notifications', () => {
       .send({ name: 'Default On', email: 'default@test.dev', password: 'secret123' });
 
     expect(res.body.user.notifications.email).toBe(true);
+  });
+});
+
+describe('scheduled orders', () => {
+  // 14:30 UTC is 8:00 pm in India, where the kitchens are.
+  const SCHEDULED = { ...ORDER, status: 'Scheduled', scheduledFor: new Date('2026-09-12T14:30:00Z') };
+
+  it('tells the customer when to expect the food, not that it is on its way', () => {
+    const mail = templates.orderPlaced({ order: SCHEDULED, restaurantName: 'Spice Bites' });
+
+    expect(mail.subject).toMatch(/^Order scheduled for /);
+    expect(mail.text).toMatch(/8:00\s?pm/i);
+    expect(mail.html).toMatch(/8:00\s?pm/i);
+    expect(mail.html).not.toContain('We will email you when it is on the way');
+  });
+
+  it('tells the kitchen when the food is due', () => {
+    const mail = templates.newOrderForRestaurant({ order: SCHEDULED, customerName: 'Vikram' });
+    expect(mail.text).toMatch(/Due around .*8:00\s?pm/i);
+  });
+
+  it('words an order for now exactly as before', () => {
+    expect(templates.orderPlaced({ order: ORDER, restaurantName: 'Spice Bites' }).subject).toMatch(
+      /^Order confirmed/
+    );
+    expect(templates.newOrderForRestaurant({ order: ORDER, customerName: 'Vikram' }).text).not.toMatch(
+      /Due around/
+    );
   });
 });

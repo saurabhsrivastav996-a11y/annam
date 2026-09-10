@@ -4,6 +4,8 @@ import { connectDB, disconnectDB } from './config/db.js';
 import { createApp } from './app.js';
 import { initSockets } from './sockets/index.js';
 import { seedIfEmpty } from './seed/seed.js';
+import { startJobs } from './jobs/runner.js';
+import { jobs } from './jobs/index.js';
 
 async function start() {
   const { mode } = await connectDB();
@@ -21,8 +23,13 @@ async function start() {
     console.log(`[cors] allowing ${env.clientUrls.join(', ')}`);
   });
 
+  // Releasing scheduled orders, and reconciling payments with Razorpay.
+  const stopJobs = startJobs(jobs);
+  console.log(`[jobs] ${jobs.map((j) => j.name).join(', ')}`);
+
   const shutdown = async (signal) => {
     console.log(`\n[${signal}] shutting down`);
+    stopJobs();
     server.close();
     await disconnectDB();
     process.exit(0);

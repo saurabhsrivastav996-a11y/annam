@@ -36,7 +36,25 @@ export function notifyWelcome(user) {
   });
 }
 
-/** Confirmation to the customer, and the ticket to the kitchen. */
+/** Sends the kitchen its ticket for an order it can start on now. */
+async function sendKitchenTicket(order, restaurant) {
+  const owner = await recipient(restaurant.ownerUserId);
+  if (!owner) return;
+
+  const buyer = await User.findById(order.customerId).select('name').lean();
+  await sendMail({
+    to: owner.email,
+    ...templates.newOrderForRestaurant({ order, customerName: buyer?.name || 'A customer' }),
+  });
+}
+
+/**
+ * Confirmation to the customer, and the ticket to the kitchen.
+ *
+ * A scheduled order only confirms to the customer here. The kitchen cannot act
+ * on it until it is released, so its ticket goes out then instead — an email
+ * saying "accept it" about food due tomorrow is only noise.
+ */
 export function notifyOrderPlaced(order) {
   background('order-placed', async () => {
     const restaurant = await Restaurant.findById(order.restaurantId)
@@ -44,24 +62,22 @@ export function notifyOrderPlaced(order) {
       .lean();
     if (!restaurant) return;
 
-    const [customer, owner] = await Promise.all([
-      recipient(order.customerId),
-      recipient(restaurant.ownerUserId),
-    ]);
-
+    const customer = await recipient(order.customerId);
     if (customer) {
       await sendMail({
         to: customer.email,
         ...templates.orderPlaced({ order, restaurantName: restaurant.name }),
       });
     }
-    if (owner) {
-      const buyer = await User.findById(order.customerId).select('name').lean();
-      await sendMail({
-        to: owner.email,
-        ...templates.newOrderForRestaurant({ order, customerName: buyer?.name || 'A customer' }),
-      });
-    }
+    if (order.status !== 'Scheduled') await sendKitchenTicket(order, restaurant);
+  });
+}
+
+/** The kitchen's ticket for a scheduled order, once it is time to start. */
+export function notifyOrderReleased(order) {
+  background('order-released', async () => {
+    const restaurant = await Restaurant.findById(order.restaurantId).select('ownerUserId').lean();
+    if (restaurant) await sendKitchenTicket(order, restaurant);
   });
 }
 

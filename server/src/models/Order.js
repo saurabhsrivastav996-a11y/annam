@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 export const ORDER_STATUSES = [
-  'Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery', 'Delivered', 'Cancelled',
+  'Scheduled', 'Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery', 'Delivered', 'Cancelled',
 ];
 
 // Who may move an order into a given status.
@@ -16,6 +16,9 @@ export const STATUS_ROLES = {
 
 // Legal forward transitions; anything else is rejected with 400.
 export const STATUS_FLOW = {
+  // Only the release job moves Scheduled -> Placed. No role may set Placed
+  // through the API, so a scheduled order cannot be pushed to the kitchen early.
+  Scheduled: ['Placed', 'Cancelled'],
   Placed: ['Accepted', 'Cancelled'],
   Accepted: ['Preparing', 'Cancelled'],
   Preparing: ['Ready', 'Cancelled'],
@@ -49,6 +52,10 @@ const orderSchema = new mongoose.Schema(
     total: { type: Number, required: true },
     status: { type: String, enum: ORDER_STATUSES, default: 'Placed', index: true },
     statusHistory: [{ status: String, at: { type: Date, default: Date.now } }],
+    // Set only for scheduled orders: the slot the customer chose, and when the
+    // kitchen has to start to make it (prep, the ride, and a buffer).
+    scheduledFor: { type: Date, default: null },
+    releaseAt: { type: Date, default: null },
     deliveryAddress: { type: String, required: true },
     // No default: an address we could not place must read as unknown rather
     // than silently claiming to be in the middle of Hyderabad.
@@ -74,5 +81,8 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// What the release job asks for every minute.
+orderSchema.index({ status: 1, releaseAt: 1 });
 
 export default mongoose.model('Order', orderSchema);
