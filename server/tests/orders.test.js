@@ -120,6 +120,21 @@ describe('order status transitions', () => {
     expect(res.status).toBe(403);
   });
 
+  it('refuses to let a customer cancel an order that is not theirs', async () => {
+    // Cancelling triggers a refund, so this is more than a nuisance: without an
+    // ownership check, any signed-in customer who learns an order id can cancel it.
+    const intruder = await makeUser({ email: 'intruder@test.dev', role: 'customer' });
+    const { body: order } = await placeOrder();
+
+    const res = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set(auth(intruder.token))
+      .send({ status: 'Cancelled' });
+
+    expect(res.status).toBe(403);
+    expect((await Order.findById(order._id)).status).toBe('Placed');
+  });
+
   it('records each step in the status history', async () => {
     const order = await orderReadyForPickup();
     const saved = await Order.findById(order._id);

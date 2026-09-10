@@ -189,6 +189,11 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     const owns = await Restaurant.exists({ _id: order.restaurantId, ownerUserId: req.user._id });
     if (!owns) throw new ApiError(403, 'You do not own this order');
   }
+  // Customers may only change their own orders. Cancelling refunds the order,
+  // so without this any customer who learnt an order id could cancel it.
+  if (req.user.role === 'customer' && order.customerId.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, 'You can only change your own orders');
+  }
   // A courier must have claimed the order first.
   if (req.user.role === 'delivery' && order.deliveryId?.toString() !== req.user._id.toString()) {
     throw new ApiError(403, 'This order is assigned to another delivery partner');
