@@ -58,8 +58,24 @@ describe('roles', () => {
     cy.visit('/dashboard/restaurant');
 
     cy.contains('Spice Bites');
-    ['Orders', 'Menu', 'Reels', 'Annadevta', 'Profile'].forEach((tab) => {
+    ['Orders', 'Insights', 'Menu', 'Reels', 'Annadevta', 'Profile'].forEach((tab) => {
       cy.contains('button', tab);
     });
+  });
+
+  it('shows a restaurant its own numbers under Insights', () => {
+    cy.loginAs('restaurant@annam.dev');
+    cy.visit('/dashboard/restaurant');
+    cy.contains('button', 'Insights').click();
+
+    // Revenue is the food only; the delivery fee belongs to the courier.
+    cy.contains('the ₹30 delivery fee is not yours');
+    cy.contains('Revenue');
+    cy.contains('Average order');
+
+    // Changing the window re-queries rather than filtering what is on screen.
+    cy.intercept('GET', '**/analytics?days=7').as('week');
+    cy.contains('button', '7 days').click();
+    cy.wait('@week').its('response.statusCode').should('eq', 200);
   });
 });

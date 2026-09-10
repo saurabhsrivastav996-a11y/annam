@@ -6,8 +6,9 @@ import { getSocket } from '../services/socket.js';
 import api, { errMsg, mediaUrl } from '../services/api.js';
 import { Badge, Button, EmptyState, Field, PageLoader, VegDot, inputCls, rupees } from '../components/ui.jsx';
 import FoodImage from '../components/FoodImage.jsx';
+import RestaurantInsights from '../components/RestaurantInsights.jsx';
 
-const TABS = ['Orders', 'Menu', 'Reels', 'Annadevta', 'Profile'];
+const TABS = ['Orders', 'Insights', 'Menu', 'Reels', 'Annadevta', 'Profile'];
 
 /** Video id out of watch?v=, youtu.be/, /live/, /embed/ and /shorts/ links. */
 function extractYouTubeId(raw) {
@@ -107,6 +108,7 @@ export default function RestaurantDashboard() {
         {tab === 'Orders' && (
           <OrdersTab orders={orders} busy={busy} reload={reloadOrders} run={run} />
         )}
+        {tab === 'Insights' && <RestaurantInsights />}
         {tab === 'Menu' && (
           <MenuTab restaurant={restaurant} reload={reloadRestaurant} busy={busy} run={run} />
         )}

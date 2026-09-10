@@ -39,11 +39,17 @@ Five roles share one system: **customer**, **restaurant**, **delivery partner**,
 </tr>
 <tr>
 <td><img src="docs/screenshots/07-kitchen.webp" alt="The restaurant dashboard listing active orders with their statuses"></td>
-<td><img src="docs/screenshots/08-admin.webp" alt="The admin dashboard with platform totals and breakdowns by role and order status"></td>
+<td><img src="docs/screenshots/09-admin.webp" alt="The admin dashboard with platform totals and breakdowns by role and order status"></td>
 </tr>
 <tr>
 <td><b>My Kitchen</b> — incoming orders with the one action each state allows, plus menu, reels and surplus in the same place.</td>
 <td><b>Admin</b> — platform totals, users by role, orders by status.</td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/screenshots/08-insights.webp" alt="The kitchen insights tab: revenue, orders delivered, average order value and cancellation rate, above a daily revenue chart"></td>
+</tr>
+<tr>
+<td colspan="2"><b>Insights</b> — what a kitchen earned, what sold, and when orders actually arrive. Revenue is the food only: the ₹30 delivery fee is collected from the customer but is not the restaurant's money, so counting it would overstate every kitchen by ₹30 an order.</td>
 </tr>
 </table>
 
@@ -118,7 +124,7 @@ That accepts the order, cooks it, marks it ready, claims it as the courier, read
 | --- | --- |
 | `npm run dev` | API (5000) + Vite dev server (5173) together |
 | `npm run dev:server` / `npm run dev:client` | One side only |
-| `npm test` | Backend test suite (Jest + Supertest, 248 tests) |
+| `npm test` | Backend test suite (Jest + Supertest, 265 tests) |
 | `npm run test:e2e` | Cypress end-to-end suite (needs `npm run dev` running) |
 | `npm run shots` | Regenerate the README screenshots (needs `npm run dev` running) |
 | `npm run lint` | ESLint over server, client and scripts |
@@ -267,6 +273,20 @@ A customer rates a **delivered** order from its tracking page — one to five st
 
 Each restaurant page shows the average, the star distribution, and the individual reviews with the dishes they were about. Reviews are attributed by first name and last initial ("Sneha K.") rather than a full name, and the restaurant's headline average is recomputed from real ratings rather than stored independently.
 
+### Kitchen insights
+
+`GET /api/restaurants/mine/analytics?days=30` aggregates a restaurant's own orders in Mongo — headline totals, revenue per day, best sellers, orders per hour and the rating spread. The window clamps to 1–365 days; an admin may pass `?restaurantId=` to look at any kitchen, an owner can only ever see their own.
+
+Three decisions in there are worth stating, because each is easy to get quietly wrong:
+
+- **Revenue is `subtotal`, never `total`.** The ₹30 delivery fee is collected from the customer but is not the restaurant's money. Counting it would overstate every kitchen by ₹30 an order. The admin dashboard *does* use `total`, and is right to — that view is platform turnover, not a kitchen's earnings.
+- **Only delivered orders are revenue.** An order sitting in Preparing is not income yet, and a cancelled one never will be. Average order value is divided by delivered orders too, so a pending ₹1,000 order cannot flatter the average.
+- **Empty buckets are returned, not omitted.** Mongo only returns groups that have rows, so a day nobody ordered simply vanishes — and a chart drawn from that runs a line straight across the gap. The API pads every day in the window and all 24 hours with zeros, so a quiet Tuesday reads as quiet.
+
+Hours are grouped in `Asia/Kolkata`, because "when are we busy" is a question about the kitchen's own clock rather than UTC.
+
+The seed backfills 45 days of trade so this page has something to plot on a first run — weighted towards lunch and dinner, busier at weekends, with a few cancellations, and generated from a fixed PRNG seed so every `npm run seed` produces the same chart. Those orders are deliberately left unrated: `listReviews` shows every rated order, so scoring them would fill each restaurant's review list with blank entries and drag its average around.
+
 ### Payments
 
 Checkout offers **cash on delivery** always, and **online payment via Razorpay** (UPI, card, netbanking) once `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are set. Without keys it falls back to a simulated card so the demo still completes end to end.
@@ -314,7 +334,7 @@ The seeded reel clips in `server/seed-media/reels/` are rendered locally by `scr
 npm test
 ```
 
-248 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
+265 tests run the real Express app against a throwaway in-memory MongoDB — auth and account rules, the full order lifecycle including OTP handover and race conditions, the donation lifecycle and volunteer impact counters, ownership boundaries, admin controls, reviews, distance and ETA maths, kitchen analytics, geocoding, email notifications, and the payment paths — signature verification, forged callbacks, replay protection and webhook handling.
 
 ---
 

@@ -175,10 +175,21 @@ describe('README screenshots', () => {
     shoot('07-kitchen');
   });
 
+  it('kitchen insights', () => {
+    signIn('restaurant@annam.dev');
+    cy.visit('/dashboard/restaurant');
+    cy.contains('button', 'Insights').click();
+    cy.contains('Revenue by day');
+    // Bars are painted from the fetched series; wait for one to have height.
+    cy.get('[data-chart="revenue"] > div > div', { timeout: 15000 })
+      .should('have.length.greaterThan', 0);
+    shoot('08-insights');
+  });
+
   it('admin dashboard', () => {
     signIn('admin@annam.dev');
     cy.visit('/dashboard/admin');
     cy.contains('Admin');
-    shoot('08-admin');
+    shoot('09-admin');
   });
 });
