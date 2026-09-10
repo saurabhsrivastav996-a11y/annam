@@ -55,7 +55,13 @@ export default function KitchenStream({ stream, restaurantName }) {
               <video
                 src={mediaUrl(stream.embedUrl)}
                 controls
+                // A feed labelled "live" should be running. Muted is what makes
+                // autoplay permitted at all — browsers block it with sound.
+                autoPlay
                 muted
+                // A real camera feed never ends; looping keeps a short clip
+                // behaving like one instead of stopping on a frozen frame.
+                loop
                 playsInline
                 className="size-full object-cover"
               />
