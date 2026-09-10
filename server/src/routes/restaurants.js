@@ -14,12 +14,14 @@ import {
 } from '../controllers/restaurantController.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/error.js';
+import { myAnalytics } from '../controllers/analyticsController.js';
 import { uploadImage } from '../middleware/upload.js';
 
 const router = express.Router();
 
 router.get('/', listRestaurants);
 router.get('/mine', requireAuth, requireRole('restaurant', 'admin'), getMyRestaurant);
+router.get('/mine/analytics', requireAuth, requireRole('restaurant', 'admin'), myAnalytics);
 router.get('/:id', getRestaurant);
 router.get('/:id/reviews', listReviews);
 
