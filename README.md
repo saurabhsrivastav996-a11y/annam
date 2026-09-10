@@ -8,6 +8,19 @@ A MERN food-delivery platform built around three ideas that ordinary delivery ap
 
 Five roles share one system: **customer**, **restaurant**, **delivery partner**, **Annadevta volunteer**, and **admin**.
 
+### ▶ Live demo — **[annam-api.onrender.com](https://annam-api.onrender.com)**
+
+Sign in with any demo account; the password for all of them is **`Test@123`**.
+
+| | | |
+| --- | --- | --- |
+| `customer@annam.dev` | `restaurant@annam.dev` | `delivery@annam.dev` |
+| `volunteer@annam.dev` | `admin@annam.dev` | |
+
+The restaurant account opens **My Kitchen → Insights**, which has 45 days of seeded trade behind it.
+
+> It runs on a free instance, which sleeps after about fifteen minutes idle — **the first request can take 30–50 seconds** while it wakes up. Everything is quick after that.
+
 ---
 
 ## What it looks like
@@ -349,7 +362,7 @@ npm run test:e2e   # in another
 
 ## Deployment
 
-Two shapes. **Single service** is simpler and is the one to pick unless you specifically want a CDN-hosted frontend.
+Two shapes. **Single service** is simpler and is the one to pick unless you specifically want a CDN-hosted frontend. [The live demo](https://annam-api.onrender.com) runs that shape on Render's free tier, against a MongoDB Atlas M0 cluster.
 
 ### Before either option
 
