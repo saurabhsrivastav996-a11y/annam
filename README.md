@@ -424,9 +424,12 @@ The server refuses to start in production if `MONGODB_URI` is missing or `JWT_SE
 
 This is a working MVP, not a production service. Specifically:
 
-- **Payments run in Razorpay test mode** unless you supply live keys. There is no refund flow, no partial capture, and no settlement reporting — a real deployment needs those plus a Razorpay account that has cleared KYC.
+- **Payments run in Razorpay test mode** unless you supply live keys, and a live deployment also needs a Razorpay account that has cleared KYC. Cancelling a paid order refunds it — a simulated card straight away, a Razorpay payment through the gateway, with refund webhooks settling the result and a refused refund recorded rather than undoing the cancellation — but there is no partial capture and no settlement reporting.
+- **Nothing goes back to Razorpay to check.** An order is created by whichever arrives first, the browser's signed callback or the `payment.captured` webhook. If both are lost — the customer closes the tab straight after paying, on a deployment with no webhook configured — Razorpay records a successful payment but Annam never creates the order. Likewise a refund Razorpay reports as still processing only settles when its webhook arrives. A reconciliation job that polls the gateway for stragglers would close both gaps.
 - **Kitchen transparency rides on YouTube Live**, not our own streaming stack. That is a deliberate trade: it is free and works today, but the stream lives on YouTube's terms — it is public to anyone with the link, and there is no in-app recording or retention.
-
-- **Reels have no moderation queue**, only an admin flag that hides a reel from the public feed.
+- **Moderation is manual.** Any signed-in user can report a reel or a review, and repeat reports from the same person count once. Admins work through a queue grouped by item, busiest first, and can hide, dismiss or restore. Content stays up until an admin hides it.
+- **Reviews are write-once.** One per delivered order, only from the customer who placed it, and not editable afterwards. A moderator can hide the text while the rating still counts. There is no reply-from-the-restaurant flow.
 - **Email has no queue or retry.** A message that fails to send is logged and dropped, not retried. There is no push or SMS.
-- **Reviews are not moderated either**, and cannot be edited or removed once submitted. There is no verification beyond "you ordered this", and no reply-from-the-restaurant flow.
+- **Live tracking runs in a single process.** Socket.IO keeps its rooms in memory with no Redis adapter, so a second API instance could not reach customers and couriers connected to the first.
+- **Geocoding leans on OpenStreetMap's public Nominatim service**, which is rate-limited by its usage policy. Results are cached in memory, up to 500 lookups, and the cache empties on every restart.
+- **Uploads need Cloudinary to survive a redeploy.** Without it they go to local disk, which hosts like Render wipe on every deploy.
