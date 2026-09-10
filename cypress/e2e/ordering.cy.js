@@ -62,6 +62,28 @@ describe('ordering', () => {
     cy.contains('Live tracking');
   });
 
+  it('books an order for later, and can cancel it before the kitchen starts', () => {
+    cy.addFirstDish('Spice Bites');
+    cy.visit('/checkout');
+
+    cy.get('textarea').clear().type('Hitech City Rd, Hyderabad');
+    cy.contains('Location pinned', { timeout: 15000 });
+
+    cy.contains('button', 'Schedule for later').click();
+    // Three hours out: comfortably past prep and the ride from Banjara Hills.
+    const slot = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    const local = `${slot.getFullYear()}-${pad(slot.getMonth() + 1)}-${pad(slot.getDate())}T${pad(slot.getHours())}:${pad(slot.getMinutes())}`;
+    cy.get('input[aria-label="Delivery time"]').type(local);
+
+    cy.contains('button', 'Schedule order').click();
+
+    cy.url({ timeout: 15000 }).should('include', '/order/');
+    cy.contains('Scheduled for');
+    cy.contains('button', 'Cancel order').click();
+    cy.contains('Order cancelled');
+  });
+
   it('shows the order in history afterwards', () => {
     cy.visit('/orders');
     cy.contains('h1', 'My orders');

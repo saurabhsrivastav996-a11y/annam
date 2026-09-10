@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Check, Phone, Star, KeyRound, Radio, Clock, MapPin } from 'lucide-react';
+import { Check, Phone, Star, KeyRound, Radio, Clock, MapPin, CalendarClock } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -8,7 +8,7 @@ import { getSocket } from '../services/socket.js';
 import { formatDistance, formatDuration } from '../hooks/useGeolocation.js';
 import api, { errMsg } from '../services/api.js';
 import MapView from '../components/MapView.jsx';
-import { Badge, Button, PageLoader, inputCls, rupees } from '../components/ui.jsx';
+import { Badge, Button, PageLoader, formatSlot, inputCls, rupees } from '../components/ui.jsx';
 
 const STEPS = ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery', 'Delivered'];
 // Mirrors server/src/utils/geo.js so the countdown can update between polls.
@@ -61,6 +61,7 @@ const PAYMENT_LABELS = {
   'mock-card': 'Card (demo)',
 };
 const LABELS = {
+  Scheduled: 'Scheduled',
   Placed: 'Order placed',
   Accepted: 'Restaurant accepted',
   Preparing: 'Being cooked',
@@ -151,6 +152,25 @@ export default function OrderTrackingPage() {
     dLat != null && { lat: dLat, lng: dLng, kind: 'home', label: 'Delivery address' },
   ].filter(Boolean);
 
+  // Before release the kitchen has not started, so the customer can still back
+  // out. The status endpoint returns an unpopulated order, so reload the full one.
+  const cancelScheduled = async () => {
+    if (!window.confirm('Cancel this scheduled order?')) return;
+    setBusy(true);
+    try {
+      await api.put(`/orders/${id}/status`, {
+        status: 'Cancelled',
+        reason: 'Cancelled by the customer before cooking started',
+      });
+      reload();
+      toast('Scheduled order cancelled', 'success');
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submitRating = async () => {
     setBusy(true);
     try {
@@ -179,7 +199,7 @@ export default function OrderTrackingPage() {
       </div>
 
       {/* Progress */}
-      {!cancelled && (
+      {!cancelled && order.status !== 'Scheduled' && (
         <ol className="mt-8 grid grid-cols-3 gap-y-6 sm:grid-cols-6">
           {STEPS.map((step, i) => {
             const done = i <= stepIndex;
@@ -202,6 +222,26 @@ export default function OrderTrackingPage() {
         </ol>
       )}
 
+      {/* Booked for later: when it arrives, and when the kitchen starts */}
+      {order.status === 'Scheduled' && order.scheduledFor && (
+        <div className="mt-8 flex flex-wrap items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4">
+          <CalendarClock className="size-5 shrink-0 text-indigo-600" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-indigo-900">
+              Scheduled for {formatSlot(order.scheduledFor)}
+            </p>
+            <p className="text-xs text-indigo-800">
+              The kitchen starts cooking around {formatSlot(order.releaseAt)}, timed to reach you for your slot.
+            </p>
+          </div>
+          {isCustomer && (
+            <Button size="sm" variant="outline" busy={busy} onClick={cancelScheduled}>
+              Cancel order
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Pickup OTP */}
       {isCustomer && otp && order.status !== 'Delivered' && (
         <div className="mt-8 flex items-center gap-3 rounded-2xl border border-saffron-200 bg-saffron-50 p-4">
@@ -216,7 +256,8 @@ export default function OrderTrackingPage() {
       {/* Map */}
       <section className="mt-8">
         <h2 className="mb-3 flex items-center gap-2 font-display text-xl font-bold text-stone-900">
-          Live tracking
+          {/* Nothing is live before release, so do not say it is. */}
+          {order.status === 'Scheduled' ? 'Delivery route' : 'Live tracking'}
           {order.status === 'OutForDelivery' && (
             <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-red-600">
               <Radio size={11} className="animate-pulse" /> live

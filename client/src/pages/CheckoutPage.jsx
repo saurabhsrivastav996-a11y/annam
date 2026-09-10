@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { CreditCard, Wallet, ShieldCheck } from 'lucide-react';
+import { CreditCard, Wallet, ShieldCheck, Zap, CalendarClock } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useFetch } from '../hooks/useApi.js';
 import { loadRazorpay } from '../services/razorpay.js';
 import api, { errMsg } from '../services/api.js';
-import { Button, rupees } from '../components/ui.jsx';
+import { Button, inputCls, rupees } from '../components/ui.jsx';
 import AddressPicker from '../components/AddressPicker.jsx';
 
 /** Flattens the stored address object into a single editable line. */
@@ -15,6 +15,12 @@ function defaultAddress(user) {
   const a = user?.address;
   if (!a) return '';
   return [a.street, a.city, a.state, a.zip].filter(Boolean).join(', ');
+}
+
+/** A Date as the "YYYY-MM-DDTHH:mm" a datetime-local input wants, in local time. */
+function toLocalInput(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export default function CheckoutPage() {
@@ -32,6 +38,13 @@ export default function CheckoutPage() {
   // when we genuinely do not know, rather than defaulted to a city centre.
   const [position, setPosition] = useState(null);
   const [payment, setPayment] = useState('cod');
+  // 'now', or 'later' with a chosen slot. The server decides whether the kitchen
+  // can actually make that slot, and names the earliest it can if not.
+  const [when, setWhen] = useState('now');
+  const [slot, setSlot] = useState('');
+  // Picker bounds, read from the clock when the customer opts in rather than
+  // during render, so rendering stays pure. The server is the real check anyway.
+  const [bounds, setBounds] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   // Emptying the cart on success would otherwise trip the guard below and
@@ -46,6 +59,7 @@ export default function CheckoutPage() {
     deliveryAddress: address,
     // Only sent once confirmed on the map; otherwise the server geocodes.
     ...(position ? { lat: position.lat, lng: position.lng } : {}),
+    ...(when === 'later' && slot ? { scheduledFor: new Date(slot).toISOString() } : {}),
   };
 
   const done = (order, message) => {
@@ -58,7 +72,12 @@ export default function CheckoutPage() {
   /** Cash on delivery and the simulated card both just create the order. */
   const placeDirectOrder = async () => {
     const { data } = await api.post('/orders', { ...basket, paymentMethod: payment });
-    done(data, 'Order placed! Track it live.');
+    done(
+      data,
+      data.status === 'Scheduled'
+        ? 'Order scheduled. The kitchen will start it in time for your slot.'
+        : 'Order placed! Track it live.'
+    );
   };
 
   /**
@@ -114,6 +133,10 @@ export default function CheckoutPage() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (when === 'later' && !slot) {
+      setError('Pick a delivery time, or choose as soon as possible.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -154,13 +177,72 @@ export default function CheckoutPage() {
           />
 
           <fieldset>
+            <legend className="mb-2 text-sm font-medium text-stone-700">When</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                { key: 'now', label: 'As soon as possible', icon: Zap, note: 'Cooked and sent now' },
+                { key: 'later', label: 'Schedule for later', icon: CalendarClock, note: 'Up to 7 days ahead' },
+              ].map(({ key, label, icon: Icon, note }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setWhen(key);
+                    if (key === 'later') {
+                      const now = Date.now();
+                      setBounds({
+                        min: toLocalInput(new Date(now + 45 * 60 * 1000)),
+                        max: toLocalInput(new Date(now + 7 * 24 * 60 * 60 * 1000)),
+                      });
+                    }
+                  }}
+                  aria-pressed={when === key}
+                  disabled={key === 'later' && payment === 'razorpay'}
+                  className={`rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    when === key
+                      ? 'border-saffron-400 bg-saffron-50 ring-2 ring-saffron-100'
+                      : 'border-stone-300 bg-white hover:bg-stone-50'
+                  }`}
+                >
+                  <Icon size={18} className={when === key ? 'text-saffron-600' : 'text-stone-500'} />
+                  <span className="mt-1.5 block text-sm font-medium text-stone-800">{label}</span>
+                  <span className="block text-xs text-stone-500">{note}</span>
+                </button>
+              ))}
+            </div>
+
+            {when === 'later' && (
+              <label className="mt-3 block">
+                <span className="mb-1 block text-sm text-stone-600">Deliver around</span>
+                <input
+                  type="datetime-local"
+                  aria-label="Delivery time"
+                  value={slot}
+                  min={bounds?.min}
+                  max={bounds?.max}
+                  onChange={(e) => setSlot(e.target.value)}
+                  className={inputCls}
+                />
+                <span className="mt-1 block text-xs text-stone-500">
+                  The kitchen starts in time for the ride to you. If the slot is too soon for the distance,
+                  you will be told the earliest it can make.
+                </span>
+              </label>
+            )}
+          </fieldset>
+
+          <fieldset>
             <legend className="mb-2 text-sm font-medium text-stone-700">Payment</legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {methods.map(({ key, label, icon: Icon, note }) => (
                 <button
                   key={key}
                   type="button"
-                  onClick={() => setPayment(key)}
+                  onClick={() => {
+                    setPayment(key);
+                    // Scheduling goes through cash or the demo card for now.
+                    if (key === 'razorpay') setWhen('now');
+                  }}
                   aria-pressed={payment === key}
                   className={`rounded-xl border p-3 text-left transition ${
                     payment === key
@@ -182,10 +264,10 @@ export default function CheckoutPage() {
                 sees them. Your order is created once Razorpay confirms the payment.
               </p>
             ) : (
-              <p className="mt-2 text-xs text-stone-500">
-                Online payment is switched off on this server. Add Razorpay keys to
-                <code className="mx-1 rounded bg-stone-100 px-1">server/.env</code>
-                to enable it; the demo card option settles instantly without a gateway.
+              <p className="mt-2 flex items-start gap-1.5 text-xs text-stone-500">
+                <ShieldCheck size={14} className="mt-px shrink-0 text-leaf-600" />
+                This is a demo: no real money is taken. The demo card settles instantly, and cash on
+                delivery is paid to the courier.
               </p>
             )}
           </fieldset>
@@ -210,7 +292,7 @@ export default function CheckoutPage() {
           </dl>
 
           <Button type="submit" size="lg" busy={busy} className="mt-4 w-full">
-            {payment === 'razorpay' ? `Pay ${rupees(total)}` : 'Place order'}
+            {payment === 'razorpay' ? `Pay ${rupees(total)}` : when === 'later' ? 'Schedule order' : 'Place order'}
           </Button>
         </aside>
       </form>

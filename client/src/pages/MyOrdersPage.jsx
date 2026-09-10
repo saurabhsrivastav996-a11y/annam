@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import { ClipboardList, ChevronRight } from 'lucide-react';
 import { useFetch } from '../hooks/useApi.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { Badge, Button, EmptyState, PageLoader, rupees } from '../components/ui.jsx';
+import { Badge, Button, EmptyState, PageLoader, formatSlot, rupees } from '../components/ui.jsx';
 
-const ACTIVE = ['Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery'];
+const ACTIVE = ['Scheduled', 'Placed', 'Accepted', 'Preparing', 'Ready', 'OutForDelivery'];
 
 export default function MyOrdersPage() {
   const { user } = useAuth();
@@ -32,6 +32,7 @@ export default function MyOrdersPage() {
           </p>
           <p className="mt-0.5 text-xs text-stone-400">
             #{order._id.slice(-6).toUpperCase()} · {new Date(order.createdAt).toLocaleString('en-IN')}
+            {order.status === 'Scheduled' && order.scheduledFor ? ` · for ${formatSlot(order.scheduledFor)}` : ''}
             {user?.role !== 'customer' && order.customerId?.name ? ` · ${order.customerId.name}` : ''}
           </p>
         </div>

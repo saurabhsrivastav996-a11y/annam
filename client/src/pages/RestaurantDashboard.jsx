@@ -4,7 +4,7 @@ import { useFetch } from '../hooks/useApi.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { getSocket } from '../services/socket.js';
 import api, { errMsg, mediaUrl } from '../services/api.js';
-import { Badge, Button, EmptyState, Field, PageLoader, VegDot, inputCls, rupees } from '../components/ui.jsx';
+import { Badge, Button, EmptyState, Field, PageLoader, VegDot, formatSlot, inputCls, rupees } from '../components/ui.jsx';
 import FoodImage from '../components/FoodImage.jsx';
 import RestaurantInsights from '../components/RestaurantInsights.jsx';
 
@@ -47,10 +47,17 @@ export default function RestaurantDashboard() {
       toast('New order received', 'success');
       reloadOrders();
     };
+    // Booked for later: shown under Upcoming now, and arrives as a new order at release.
+    const onScheduled = () => {
+      toast('New order scheduled for later', 'info');
+      reloadOrders();
+    };
     socket.on('order:new', onNew);
+    socket.on('order:scheduled', onScheduled);
     socket.on('donation:accepted', reloadDonations);
     return () => {
       socket.off('order:new', onNew);
+      socket.off('order:scheduled', onScheduled);
       socket.off('donation:accepted', reloadDonations);
     };
   }, [reloadOrders, reloadDonations, toast]);
@@ -188,7 +195,8 @@ function CreateRestaurant({ onCreated }) {
 /* ---------- Tabs ---------- */
 
 function OrdersTab({ orders, busy, reload, run }) {
-  const live = (orders || []).filter((o) => !['Delivered', 'Cancelled'].includes(o.status));
+  const upcoming = (orders || []).filter((o) => o.status === 'Scheduled');
+  const live = (orders || []).filter((o) => !['Scheduled', 'Delivered', 'Cancelled'].includes(o.status));
   const done = (orders || []).filter((o) => ['Delivered', 'Cancelled'].includes(o.status));
 
   if (!orders?.length) {
@@ -215,6 +223,12 @@ function OrdersTab({ orders, busy, reload, run }) {
           ))}
         </ul>
 
+        {order.status === 'Scheduled' && order.scheduledFor && (
+          <p className="mt-2 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs text-indigo-800">
+            Due {formatSlot(order.scheduledFor)} · moves to Active around {formatSlot(order.releaseAt)}
+          </p>
+        )}
+
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-200 pt-3">
           <p className="font-semibold text-stone-900">{rupees(order.total)}</p>
           <div className="flex gap-2">
@@ -235,7 +249,7 @@ function OrdersTab({ orders, busy, reload, run }) {
                 {next.label}
               </Button>
             )}
-            {['Placed', 'Accepted', 'Preparing'].includes(order.status) && (
+            {['Scheduled', 'Placed', 'Accepted', 'Preparing'].includes(order.status) && (
               <Button
                 size="sm"
                 variant="danger"
@@ -263,6 +277,12 @@ function OrdersTab({ orders, busy, reload, run }) {
 
   return (
     <div className="space-y-8">
+      {upcoming.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Upcoming</h2>
+          <ul className="grid gap-3 sm:grid-cols-2">{upcoming.map((o) => <Card key={o._id} order={o} />)}</ul>
+        </section>
+      )}
       {live.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-stone-500">Active</h2>

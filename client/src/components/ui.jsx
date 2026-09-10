@@ -87,6 +87,7 @@ export function Stars({ value = 0, count, size = 14 }) {
 }
 
 const TONES = {
+  Scheduled: 'bg-indigo-100 text-indigo-700',
   Placed: 'bg-stone-100 text-stone-700',
   Accepted: 'bg-blue-100 text-blue-700',
   Preparing: 'bg-amber-100 text-amber-800',
@@ -110,6 +111,17 @@ export function Badge({ status, children, className = '' }) {
 }
 
 export const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+
+/** "Sat, 12 Sept, 8:00 pm" in Indian time, worded the way the server words a slot. */
+export const formatSlot = (date) =>
+  new Date(date).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 
 export function VegDot({ category }) {
   const veg = category === 'veg';
